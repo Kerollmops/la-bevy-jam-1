@@ -50,7 +50,11 @@ pub fn init() {
         .add_state(States::AssetLoading)
         .insert_resource(ClearColor(Color::rgb(0.239, 0.239, 0.239)))
         .insert_resource(GameScore::default())
-        .insert_resource(BonusesTimers { dummy: Timer::new(Duration::from_secs(5), false) })
+        .insert_resource(BonusesTimers {
+            split_ball: Timer::new(Duration::from_secs(5), false),
+            ball_speed_on_area: Timer::new(Duration::from_secs(15), false),
+            herd_on_area: Timer::new(Duration::from_secs(25), false),
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
@@ -88,6 +92,8 @@ pub fn init() {
                 .with_system(manage_taken_bonuses)
                 .with_system(store_taken_bonuses_in_score)
                 .with_system(manage_split_ball_bonus)
+                .with_system(manage_ball_speed_on_area_bonus)
+                .with_system(manage_herd_on_area_bonus)
                 .with_system(regame_when_no_balls),
         )
         .run();
@@ -140,7 +146,7 @@ fn enable_spawned_balls_ccd(
 }
 
 fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
-    bonuses_timers.dummy.reset();
+    bonuses_timers.split_ball.reset();
 }
 
 fn tick_bonuses_timers(
@@ -148,8 +154,14 @@ fn tick_bonuses_timers(
     mut bonuses_timers: ResMut<BonusesTimers>,
     mut spawn_bonus_event: EventWriter<SpawnBonusEvent>,
 ) {
-    if bonuses_timers.dummy.tick(time.delta()).just_finished() {
+    if bonuses_timers.split_ball.tick(time.delta()).just_finished() {
         spawn_bonus_event.send(SpawnBonusEvent(BonusType::SplitBall));
+    }
+    if bonuses_timers.ball_speed_on_area.tick(time.delta()).just_finished() {
+        spawn_bonus_event.send(SpawnBonusEvent(BonusType::BallSpeedOnArea));
+    }
+    if bonuses_timers.herd_on_area.tick(time.delta()).just_finished() {
+        spawn_bonus_event.send(SpawnBonusEvent(BonusType::HerdOnArea));
     }
 }
 
@@ -309,6 +321,8 @@ fn regame_when_no_balls(mut state: ResMut<State<States>>, balls_query: Query<(),
     }
 }
 
+/// TODO detect stalled balls by adding a timer to
+/// them and reseting them at every collision with paddles
 fn remove_stalled_balls(
     mut commands: Commands,
     balls_query: Query<(Entity, &Velocity), With<Ball>>,
@@ -325,31 +339,43 @@ fn spawn_bonuses(
     mut spawn_bonus_event: EventReader<SpawnBonusEvent>,
     assets: Res<CardAssets>,
 ) {
+    let mut rng = rand::thread_rng();
+    let x = rng.gen_range(-10.0..10.0);
+    let y = rng.gen_range(-6.0..6.0);
+
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
+        let mut commands = commands.spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
+            sprite: TextureAtlasSprite {
+                index: 0,
+                custom_size: Some(Vec2::new(0.75, 1.0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        commands
+            .insert(Velocity::default())
+            .insert(RigidBody::Sensor)
+            .insert(CollisionShape::Cuboid {
+                half_extends: Vec3::new(0.25, 0.625, 0.),
+                border_radius: None,
+            })
+            .insert(
+                CollisionLayers::none()
+                    .with_group(GamePhysicsLayer::Bonus)
+                    .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
+            );
+
         match bonus {
             BonusType::SplitBall => {
-                commands
-                    .spawn_bundle(SpriteSheetBundle {
-                        texture_atlas: assets.texture_atlas.clone(),
-                        sprite: TextureAtlasSprite {
-                            index: 0,
-                            custom_size: Some(Vec2::new(0.75, 1.0)),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    })
-                    .insert(Velocity::default())
-                    .insert(RigidBody::Sensor)
-                    .insert(CollisionShape::Cuboid {
-                        half_extends: Vec3::new(0.25, 0.625, 0.),
-                        border_radius: None,
-                    })
-                    .insert(
-                        CollisionLayers::none()
-                            .with_group(GamePhysicsLayer::Bonus)
-                            .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
-                    )
-                    .insert(BonusType::SplitBall);
+                commands.insert(BonusType::SplitBall);
+            }
+            BonusType::BallSpeedOnArea => {
+                commands.insert(BonusType::BallSpeedOnArea);
+            }
+            BonusType::HerdOnArea => {
+                commands.insert(BonusType::HerdOnArea);
             }
         }
     }
@@ -372,10 +398,24 @@ fn manage_taken_bonuses(
                 if let Some(paddle_entity) = ball.last_touched_paddle {
                     if let Ok(&paddle) = paddles_query.get(paddle_entity) {
                         if let Ok(&bonus) = bonuses_query.get(*bonus_entity) {
-                            taken_bonus_writer.send(TakenBonusEvent {
-                                bonus: Bonus::SplitBall { ball: *ball_entity },
-                                paddle,
-                            });
+                            let bonus = match bonus {
+                                BonusType::SplitBall => TakenBonusEvent {
+                                    bonus: Bonus::SplitBall { ball: *ball_entity },
+                                    paddle,
+                                },
+                                BonusType::BallSpeedOnArea => TakenBonusEvent {
+                                    bonus: Bonus::BallSpeedOnArea {
+                                        ball: *ball_entity,
+                                        benefiting_paddle: paddle,
+                                    },
+                                    paddle,
+                                },
+                                BonusType::HerdOnArea => TakenBonusEvent {
+                                    bonus: Bonus::HerdOnArea { benefiting_paddle: paddle },
+                                    paddle,
+                                },
+                            };
+                            taken_bonus_writer.send(bonus);
                             commands.entity(*bonus_entity).despawn_recursive();
                         }
                     }
@@ -404,8 +444,8 @@ fn manage_split_ball_bonus(
     assets: Res<BallAssets>,
 ) {
     let mut rng = rand::thread_rng();
-    for event in taken_bonus_reader.iter() {
-        if let TakenBonusEvent { bonus: Bonus::SplitBall { ball }, .. } = event {
+    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
+        if let Bonus::SplitBall { ball } = bonus {
             if let Ok((transform, velocity)) = balls_query.get(*ball) {
                 // Rotate the velocity of the original ball by a random angle
                 let angle = rng.gen_range(0.0..2.0 * PI);
@@ -444,6 +484,34 @@ fn manage_split_ball_bonus(
                     ))
                     .insert(Ball::default());
             }
+        }
+    }
+}
+
+fn manage_ball_speed_on_area_bonus(
+    mut commands: Commands,
+    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
+    balls_query: Query<(&Transform, &Velocity), With<Ball>>,
+    assets: Res<BallAssets>,
+) {
+    let mut rng = rand::thread_rng();
+    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
+        if let Bonus::HerdOnArea { benefiting_paddle } = bonus {
+            ()
+        }
+    }
+}
+
+fn manage_herd_on_area_bonus(
+    mut commands: Commands,
+    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
+    balls_query: Query<(&Transform, &Velocity), With<Ball>>,
+    assets: Res<BallAssets>,
+) {
+    let mut rng = rand::thread_rng();
+    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
+        if let Bonus::BallSpeedOnArea { ball, benefiting_paddle } = bonus {
+            ()
         }
     }
 }
@@ -499,7 +567,9 @@ struct Ball {
 
 #[derive(Component)]
 struct BonusesTimers {
-    dummy: Timer,
+    split_ball: Timer,
+    ball_speed_on_area: Timer,
+    herd_on_area: Timer,
 }
 
 struct SpawnBonusEvent(BonusType);
@@ -512,9 +582,13 @@ struct TakenBonusEvent {
 #[derive(Clone, Copy)]
 enum Bonus {
     SplitBall { ball: Entity },
+    BallSpeedOnArea { ball: Entity, benefiting_paddle: Paddle },
+    HerdOnArea { benefiting_paddle: Paddle },
 }
 
 #[derive(Component, Clone, Copy)]
 enum BonusType {
     SplitBall,
+    BallSpeedOnArea,
+    HerdOnArea,
 }
