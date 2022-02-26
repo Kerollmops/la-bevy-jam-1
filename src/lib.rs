@@ -16,7 +16,7 @@ const WHITE_COLOR: Color = Color::rgb(0.922, 0.922, 0.922);
 const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
 
 const PADDLE_SPEED: f32 = 10.0;
-const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.05;
+const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.1;
 const BALL_SCORE_DAMAGE: usize = 10;
 
 pub fn init() {
@@ -272,6 +272,7 @@ fn spawn_field_lines(mut commands: Commands) {
     });
 }
 
+// TODO remove that system
 fn ready_to_play(mut state: ResMut<State<States>>) {
     state.set(States::WaitingPlayer).unwrap()
 }
