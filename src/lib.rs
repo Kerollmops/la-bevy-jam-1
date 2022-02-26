@@ -1,9 +1,11 @@
+use std::f32::consts::PI;
 use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
 use ordered_float::OrderedFloat;
+use rand::Rng;
 use wasm_bindgen::prelude::*;
 
 use self::game_assets::*;
@@ -342,8 +344,12 @@ fn launch_ball(
 ) {
     if keys.clear_just_released(KeyCode::Space) {
         state.set(States::InGame).unwrap();
+        let mut rng = rand::thread_rng();
         for mut velocity in balls_query.iter_mut() {
-            velocity.linear = Vec3::new(3.0, 3.0, 0.0);
+            let radian = rng.gen_range(0.0..PI) - PI / 2.;
+            let x = radian.cos() * 3.0;
+            let y = radian.sin() * 3.0;
+            velocity.linear = if rng.gen() { Vec3::new(x, y, 0.0) } else { Vec3::new(-x, y, 0.0) };
         }
     }
 }
