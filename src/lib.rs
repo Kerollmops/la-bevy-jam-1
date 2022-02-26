@@ -1,6 +1,4 @@
-use bevy::prelude::shape::Icosphere;
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
 use ordered_float::OrderedFloat;
@@ -17,12 +15,14 @@ const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
 
 const PADDLE_SPEED: f32 = 10.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.1;
+const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.05;
 const BALL_SCORE_DAMAGE: usize = 10;
 
 pub fn init() {
     let mut app = App::new();
     AssetLoader::new(States::AssetLoading)
         .with_collection::<GameAssets>()
+        .with_collection::<BallAssets>()
         .continue_to_state(States::InitGameField)
         .build(&mut app);
 
@@ -33,9 +33,7 @@ pub fn init() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
-        .init_resource::<BallAssets>()
         .add_startup_system(camera_setup)
-        .add_startup_system(prepare_materials)
         .add_system_set(
             SystemSet::on_enter(States::InitGameField)
                 .with_system(spawn_paddles)
@@ -74,16 +72,6 @@ fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
     camera_bundle.orthographic_projection.scale = 1. / 50.;
     commands.spawn_bundle(camera_bundle);
-}
-
-fn prepare_materials(
-    mut color_materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut ball_assets: ResMut<BallAssets>,
-) {
-    ball_assets.color_material = color_materials.add(ColorMaterial::from(Color::WHITE));
-    ball_assets.mesh =
-        Mesh2dHandle(meshes.add(Mesh::from(Icosphere { radius: 0.25, ..Default::default() })));
 }
 
 fn spawn_paddles(mut commands: Commands) {
