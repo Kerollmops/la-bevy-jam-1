@@ -6,6 +6,7 @@ pub enum GameCollisionEvent {
     BallAndPaddle { status: CollisionStatus, ball: Entity, paddle: Entity },
     BallAndGoal { status: CollisionStatus, ball: Entity, goal: Entity },
     BallAndEdge { status: CollisionStatus, ball: Entity, edge: Entity },
+    BallAndBonus { status: CollisionStatus, ball: Entity, bonus: Entity },
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -16,10 +17,11 @@ pub enum CollisionStatus {
 
 #[derive(PhysicsLayer)]
 pub enum GamePhysicsLayer {
-    Edge,
     Ball,
     Paddle,
     Goal,
+    Edge,
+    Bonus,
 }
 
 pub fn produce_game_collision_events(
@@ -49,6 +51,11 @@ pub fn produce_game_collision_events(
             out_events.send(BallAndEdge { status, ball: entity_2, edge: entity_1 });
         } else if is_edge_layer(layers_2) && is_ball_layer(layers_1) {
             out_events.send(BallAndEdge { status, ball: entity_1, edge: entity_2 });
+        // ball and bonus collide
+        } else if is_bonus_layer(layers_1) && is_ball_layer(layers_2) {
+            out_events.send(BallAndBonus { status, ball: entity_2, bonus: entity_1 });
+        } else if is_bonus_layer(layers_2) && is_ball_layer(layers_1) {
+            out_events.send(BallAndBonus { status, ball: entity_1, bonus: entity_2 });
         }
     }
 }
@@ -67,4 +74,8 @@ fn is_ball_layer(layers: CollisionLayers) -> bool {
 
 fn is_edge_layer(layers: CollisionLayers) -> bool {
     layers.contains_group(GamePhysicsLayer::Edge)
+}
+
+fn is_bonus_layer(layers: CollisionLayers) -> bool {
+    layers.contains_group(GamePhysicsLayer::Bonus)
 }
