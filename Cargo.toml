@@ -1,0 +1,22 @@
+[package]
+name = "la-bevy-jam-1"
+description = "Our participation to the Bevy Jam #1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.6.1"
+bevy_asset_loader = { version = "0.9.0", features = ["render"] }
+heron = { version = "2.0.0", features = ["2d"] }
+rand = "0.8.5"
+
+[features]
+debug-2d = ["heron/debug-2d"]
+
+# Enable only a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

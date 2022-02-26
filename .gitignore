@@ -1,0 +1,10 @@
+# Rust files
+/target
+
+# the MacOs files
+.DS_Store
+
+# the release folder
+pkg/
+release/
+release.zip
