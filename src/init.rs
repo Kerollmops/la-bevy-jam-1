@@ -3,7 +3,7 @@ use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
-use crate::{ComputerGoal, ComputerPaddle, PlayerGoal, PlayerPaddle, BLUE_COLOR, WHITE_COLOR};
+use crate::{Goal, Paddle, BLUE_COLOR, WHITE_COLOR};
 
 pub fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
@@ -39,7 +39,7 @@ pub fn spawn_paddles(mut commands: Commands) {
                 .with_group(GamePhysicsLayer::Paddle)
                 .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
         )
-        .insert(PlayerPaddle);
+        .insert(Paddle::Player);
 
     // Computer paddle (on the left)
     commands
@@ -68,7 +68,7 @@ pub fn spawn_paddles(mut commands: Commands) {
                 .with_group(GamePhysicsLayer::Paddle)
                 .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
         )
-        .insert(ComputerPaddle);
+        .insert(Paddle::Computer);
 }
 
 pub fn spawn_goals(mut commands: Commands) {
@@ -88,7 +88,7 @@ pub fn spawn_goals(mut commands: Commands) {
                 .with_group(GamePhysicsLayer::Goal)
                 .with_mask(GamePhysicsLayer::Ball),
         )
-        .insert(PlayerGoal);
+        .insert(Goal::Player);
 
     // Computer goal (on the left)
     commands
@@ -106,7 +106,7 @@ pub fn spawn_goals(mut commands: Commands) {
                 .with_group(GamePhysicsLayer::Goal)
                 .with_mask(GamePhysicsLayer::Ball),
         )
-        .insert(ComputerGoal);
+        .insert(Goal::Computer);
 }
 
 pub fn spawn_edges(mut commands: Commands) {
