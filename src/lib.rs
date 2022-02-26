@@ -1,9 +1,11 @@
+use bevy::prelude::shape::Icosphere;
 use bevy::prelude::*;
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
 use wasm_bindgen::prelude::*;
 
-use self::game_assets::GameAssets;
+use self::game_assets::*;
 
 mod game_assets;
 
@@ -15,7 +17,7 @@ pub fn init() {
     let mut app = App::new();
     AssetLoader::new(States::AssetLoading)
         .with_collection::<GameAssets>()
-        .continue_to_state(States::Next)
+        .continue_to_state(States::WaitingPlayer)
         .build(&mut app);
 
     app.add_state(States::AssetLoading)
@@ -23,15 +25,23 @@ pub fn init() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
+        .init_resource::<BallAssets>()
         .add_startup_system(camera_setup)
+        .add_startup_system(prepare_materials)
         .add_system_set(
-            SystemSet::on_enter(States::Next)
+            SystemSet::on_enter(States::WaitingPlayer)
                 .with_system(spawn_paddles)
                 .with_system(spawn_goals)
                 .with_system(spawn_edges)
-                .with_system(spawn_middle_line),
+                .with_system(spawn_middle_line)
+                .with_system(spawn_static_ball),
         )
-        .add_system_set(SystemSet::on_update(States::Next).with_system(move_player_paddle))
+        .add_system_set(SystemSet::on_update(States::WaitingPlayer).with_system(launch_ball))
+        .add_system_set(
+            SystemSet::on_update(States::InGame)
+                .with_system(move_player_paddle)
+                .with_system(track_balls_state),
+        )
         .run();
 }
 
@@ -46,6 +56,16 @@ fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
     camera_bundle.orthographic_projection.scale = 1. / 50.;
     commands.spawn_bundle(camera_bundle);
+}
+
+fn prepare_materials(
+    mut color_materials: ResMut<Assets<ColorMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut ball_assets: ResMut<BallAssets>,
+) {
+    ball_assets.color_material = color_materials.add(ColorMaterial::from(Color::WHITE));
+    ball_assets.mesh =
+        Mesh2dHandle(meshes.add(Mesh::from(Icosphere { radius: 0.25, ..Default::default() })));
 }
 
 fn spawn_paddles(mut commands: Commands) {
@@ -67,6 +87,10 @@ fn spawn_paddles(mut commands: Commands) {
             border_radius: None,
         })
         .insert(RotationConstraints::lock())
+        .insert(PhysicMaterial {
+            restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
+            ..Default::default()
+        })
         .insert(
             CollisionLayers::none()
                 .with_group(GamePhysicsLayers::Paddle)
@@ -92,6 +116,10 @@ fn spawn_paddles(mut commands: Commands) {
             border_radius: None,
         })
         .insert(RotationConstraints::lock())
+        .insert(PhysicMaterial {
+            restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
+            ..Default::default()
+        })
         .insert(
             CollisionLayers::none()
                 .with_group(GamePhysicsLayers::Paddle)
@@ -149,6 +177,10 @@ fn spawn_edges(mut commands: Commands) {
             half_extends: Vec3::new(14., 1., 0.),
             border_radius: None,
         })
+        .insert(PhysicMaterial {
+            restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
+            ..Default::default()
+        })
         .insert(
             CollisionLayers::none()
                 .with_group(GamePhysicsLayers::Edge)
@@ -164,6 +196,10 @@ fn spawn_edges(mut commands: Commands) {
         .insert(CollisionShape::Cuboid {
             half_extends: Vec3::new(14., 1., 0.),
             border_radius: None,
+        })
+        .insert(PhysicMaterial {
+            restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
+            ..Default::default()
         })
         .insert(
             CollisionLayers::none()
@@ -196,6 +232,42 @@ fn spawn_middle_line(mut commands: Commands) {
     });
 }
 
+fn spawn_static_ball(mut commands: Commands, ball_assets: Res<BallAssets>) {
+    commands
+        .spawn_bundle(MaterialMesh2dBundle {
+            mesh: ball_assets.mesh.clone(),
+            material: ball_assets.color_material.clone(),
+            ..Default::default()
+        })
+        .insert(Acceleration::default())
+        .insert(Velocity::default())
+        .insert(RigidBody::Dynamic)
+        .insert(CollisionShape::Sphere { radius: 0.25 })
+        .insert(PhysicMaterial {
+            restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
+            ..Default::default()
+        })
+        .insert(CollisionLayers::none().with_group(GamePhysicsLayers::Ball).with_masks(&[
+            GamePhysicsLayers::Paddle,
+            GamePhysicsLayers::Goal,
+            GamePhysicsLayers::Edge,
+        ]))
+        .insert(Ball::default());
+}
+
+fn launch_ball(
+    mut keys: ResMut<Input<KeyCode>>,
+    mut state: ResMut<State<States>>,
+    mut balls_query: Query<&mut Velocity, With<Ball>>,
+) {
+    if keys.clear_just_released(KeyCode::Space) {
+        state.set(States::InGame).unwrap();
+        for mut velocity in balls_query.iter_mut() {
+            velocity.linear = Vec3::new(3.0, 3.0, 0.0);
+        }
+    }
+}
+
 fn move_player_paddle(
     keys: Res<Input<KeyCode>>,
     mut player_paddle_query: Query<&mut Velocity, With<PlayerPaddle>>,
@@ -213,10 +285,15 @@ fn move_player_paddle(
     }
 }
 
+fn track_balls_state(_balls_query: Query<&mut Ball>) {
+    // ...
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum States {
     AssetLoading,
-    Next,
+    WaitingPlayer,
+    InGame,
 }
 
 #[derive(PhysicsLayer)]
@@ -238,3 +315,8 @@ struct ComputerPaddle;
 
 #[derive(Component)]
 struct ComputerGoal;
+
+#[derive(Default, Component)]
+struct Ball {
+    touched_paddles: usize,
+}
