@@ -176,7 +176,7 @@ fn launch_ball(
         state.set(States::InGame).unwrap();
         let mut rng = rand::thread_rng();
         for mut velocity in balls_query.iter_mut() {
-            let radian = rng.gen_range(0.0..PI) - PI / 2.;
+            let radian = rng.gen_range(0.0..PI / 2.) + 3. * PI / 4.;
             let x = radian.cos() * BALL_SPEED;
             let y = radian.sin() * BALL_SPEED;
             velocity.linear = if rng.gen() { Vec3::new(x, y, 0.0) } else { Vec3::new(-x, y, 0.0) };
@@ -314,7 +314,7 @@ fn remove_stalled_balls(
     balls_query: Query<(Entity, &Velocity), With<Ball>>,
 ) {
     for (entity, velocity) in balls_query.iter() {
-        if velocity.linear[1].abs() < 0.5 {
+        if velocity.linear[1].abs() < 0.1 {
             commands.entity(entity).despawn_recursive();
         }
     }
@@ -405,7 +405,7 @@ fn manage_split_ball_bonus(
 ) {
     let mut rng = rand::thread_rng();
     for event in taken_bonus_reader.iter() {
-        if let TakenBonusEvent { bonus: Bonus::SplitBall { ball }, paddle } = event {
+        if let TakenBonusEvent { bonus: Bonus::SplitBall { ball }, .. } = event {
             if let Ok((transform, velocity)) = balls_query.get(*ball) {
                 // Rotate the velocity of the original ball by a random angle
                 let angle = rng.gen_range(0.0..2.0 * PI);

@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
