@@ -57,6 +57,7 @@ pub fn init() {
                 .with_system(move_computer_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
                 .with_system(track_scoring_balls)
+                .with_system(remove_stalled_balls)
                 .with_system(regame_when_no_balls),
         )
         .run();
@@ -149,7 +150,7 @@ fn spawn_goals(mut commands: Commands) {
     // Player goal (on the right)
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(12., 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(12.25, 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
         .insert(CollisionShape::Cuboid {
@@ -167,7 +168,7 @@ fn spawn_goals(mut commands: Commands) {
     // Computer goal (on the left)
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(-12., 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(-12.25, 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
         .insert(CollisionShape::Cuboid {
@@ -230,7 +231,7 @@ fn spawn_field_lines(mut commands: Commands) {
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(22., 0.1)),
+            custom_size: Some(Vec2::new(22.5, 0.1)),
             ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(0., 6., 0.)),
@@ -241,7 +242,7 @@ fn spawn_field_lines(mut commands: Commands) {
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(22., 0.1)),
+            custom_size: Some(Vec2::new(22.5, 0.1)),
             ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(0., -6., 0.)),
@@ -396,6 +397,17 @@ fn track_scoring_balls(
 fn regame_when_no_balls(mut state: ResMut<State<States>>, balls_query: Query<(), With<Ball>>) {
     if balls_query.is_empty() {
         state.set(States::WaitingPlayer).unwrap();
+    }
+}
+
+fn remove_stalled_balls(
+    mut commands: Commands,
+    balls_query: Query<(Entity, &Velocity), With<Ball>>,
+) {
+    for (entity, velocity) in balls_query.iter() {
+        if velocity.linear[1].abs() < 0.1 {
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }
 
