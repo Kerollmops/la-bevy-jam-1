@@ -23,6 +23,7 @@ const WHITE_COLOR: Color = Color::rgb(0.922, 0.922, 0.922);
 const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
 
 const PADDLE_SPEED: f32 = 10.0;
+const BALL_SPEED: f32 = 5.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.1;
 const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.05;
 const BALL_SCORE_DAMAGE: usize = 10;
@@ -175,8 +176,8 @@ fn launch_ball(
         let mut rng = rand::thread_rng();
         for mut velocity in balls_query.iter_mut() {
             let radian = rng.gen_range(0.0..PI) - PI / 2.;
-            let x = radian.cos() * 3.0;
-            let y = radian.sin() * 3.0;
+            let x = radian.cos() * BALL_SPEED;
+            let y = radian.sin() * BALL_SPEED;
             velocity.linear = if rng.gen() { Vec3::new(x, y, 0.0) } else { Vec3::new(-x, y, 0.0) };
         }
     }
@@ -184,40 +185,45 @@ fn launch_ball(
 
 fn move_player_paddle(
     keys: Res<Input<KeyCode>>,
-    mut player_paddle_query: Query<&mut Velocity, With<PlayerPaddle>>,
+    mut paddle_query: Query<(&mut Velocity, &Paddle)>,
 ) {
-    for mut velocity in player_paddle_query.iter_mut() {
-        let y = if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
-            1.
-        } else if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
-            -1.
-        } else {
-            0.
-        };
+    for (mut velocity, paddle) in paddle_query.iter_mut() {
+        if let Paddle::Player = paddle {
+            let y = if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
+                1.
+            } else if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
+                -1.
+            } else {
+                0.
+            };
 
-        velocity.linear = Vec2::new(0., y).extend(0.) * PADDLE_SPEED;
+            velocity.linear = Vec2::new(0., y).extend(0.) * PADDLE_SPEED;
+        }
     }
 }
 
 fn move_computer_paddle(
-    mut computer_paddle_query: Query<(&mut Velocity, &GlobalTransform), With<ComputerPaddle>>,
+    mut computer_paddle_query: Query<(&mut Velocity, &GlobalTransform, &Paddle)>,
     balls_query: Query<&GlobalTransform, With<Ball>>,
 ) {
-    for (mut velocity, global_transform) in computer_paddle_query.iter_mut() {
-        let position = global_transform.translation;
-        if let Some(nearest_ball_transform) = balls_query
-            .iter()
-            .min_by_key(|t| OrderedFloat(t.translation.distance_squared(position)))
-        {
-            let distance_y = nearest_ball_transform.translation[1] - position[1];
-            let speed = if distance_y < 1.0 && distance_y > -1.0 {
-                0.0
-            } else if distance_y < 0. {
-                -PADDLE_SPEED
-            } else {
-                PADDLE_SPEED
-            };
-            velocity.linear = Vec3::new(0., speed, 0.);
+    for (mut velocity, global_transform, paddle) in computer_paddle_query.iter_mut() {
+        if let Paddle::Computer = paddle {
+            let position = global_transform.translation;
+            if let Some(nearest_ball_transform) = balls_query
+                .iter()
+                .min_by_key(|t| OrderedFloat(t.translation.distance_squared(position)))
+            {
+                let distance_y = nearest_ball_transform.translation[1] - position[1];
+                let speed = if distance_y < 1.0 && distance_y > -1.0 {
+                    0.0
+                } else if distance_y < 0. {
+                    -PADDLE_SPEED
+                } else {
+                    PADDLE_SPEED
+                };
+
+                velocity.linear = Vec3::new(0., speed, 0.);
+            }
         }
     }
 }
