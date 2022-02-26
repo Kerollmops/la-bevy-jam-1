@@ -54,6 +54,7 @@ pub fn init() {
                 .with_system(move_player_paddle)
                 .with_system(move_computer_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
+                .with_system(speed_up_balls_with_touched_edges)
                 .with_system(track_scoring_balls)
                 .with_system(remove_stalled_balls)
                 .with_system(regame_when_no_balls),
@@ -265,11 +266,15 @@ fn ready_to_play(mut state: ResMut<State<States>>) {
     state.set(States::WaitingPlayer).unwrap()
 }
 
-fn spawn_static_ball(mut commands: Commands, ball_assets: Res<BallAssets>) {
+fn spawn_static_ball(mut commands: Commands, assets: Res<BallAssets>) {
     commands
-        .spawn_bundle(MaterialMesh2dBundle {
-            mesh: ball_assets.mesh.clone(),
-            material: ball_assets.color_material.clone(),
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            sprite: TextureAtlasSprite {
+                index: 0,
+                custom_size: Some(Vec2::new(0.5, 0.5)),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Acceleration::default())
@@ -339,7 +344,13 @@ fn move_computer_paddle(
             .min_by_key(|t| OrderedFloat(t.translation.distance_squared(position)))
         {
             let distance_y = nearest_ball_transform.translation[1] - position[1];
-            let speed = distance_y.clamp(-PADDLE_SPEED, PADDLE_SPEED);
+            let speed = if distance_y < 1.0 && distance_y > -1.0 {
+                0.0
+            } else if distance_y < 0. {
+                -PADDLE_SPEED
+            } else {
+                PADDLE_SPEED
+            };
             velocity.linear = Vec3::new(0., speed, 0.);
         }
     }
@@ -356,6 +367,22 @@ fn speed_up_balls_with_touched_paddles(
             if let Ok((mut velocity, mut ball)) = balls_query.get_mut(*ball) {
                 ball.touched_paddles += 1;
                 velocity.linear *= 1. + BALL_TOUCH_PADDLE_SPEED_UP;
+            }
+        }
+    }
+}
+
+fn speed_up_balls_with_touched_edges(
+    mut collision_events: EventReader<GameCollisionEvent>,
+    mut balls_query: Query<(&mut Velocity, &mut Ball)>,
+) {
+    use GameCollisionEvent::*;
+
+    for event in collision_events.iter() {
+        if let BallAndEdge { status: CollisionStatus::Stopped, ball, .. } = event {
+            if let Ok((mut velocity, mut ball)) = balls_query.get_mut(*ball) {
+                ball.touched_paddles += 1;
+                velocity.linear *= 1. + BALL_TOUCH_EDGE_SPEED_UP;
             }
         }
     }
