@@ -3,25 +3,33 @@ use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
+use ordered_float::OrderedFloat;
 use wasm_bindgen::prelude::*;
 
 use self::game_assets::*;
+use self::game_collisions::*;
 
 mod game_assets;
+mod game_collisions;
 
-const PADDLE_SPEED: f32 = 10.0;
 const WHITE_COLOR: Color = Color::rgb(0.922, 0.922, 0.922);
 const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
+
+const PADDLE_SPEED: f32 = 10.0;
+const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.05;
+const BALL_SCORE_DAMAGE: usize = 10;
 
 pub fn init() {
     let mut app = App::new();
     AssetLoader::new(States::AssetLoading)
         .with_collection::<GameAssets>()
-        .continue_to_state(States::WaitingPlayer)
+        .continue_to_state(States::InitGameField)
         .build(&mut app);
 
-    app.add_state(States::AssetLoading)
+    app.add_event::<GameCollisionEvent>()
+        .add_state(States::AssetLoading)
         .insert_resource(ClearColor(Color::rgb(0.239, 0.239, 0.239)))
+        .insert_resource(GameScore::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
@@ -29,18 +37,27 @@ pub fn init() {
         .add_startup_system(camera_setup)
         .add_startup_system(prepare_materials)
         .add_system_set(
-            SystemSet::on_enter(States::WaitingPlayer)
+            SystemSet::on_enter(States::InitGameField)
                 .with_system(spawn_paddles)
                 .with_system(spawn_goals)
                 .with_system(spawn_edges)
-                .with_system(spawn_middle_line)
-                .with_system(spawn_static_ball),
+                .with_system(spawn_field_lines)
+                .with_system(ready_to_play),
+        )
+        .add_system_set(
+            SystemSet::on_enter(States::WaitingPlayer)
+                .with_system(spawn_static_ball)
+                .with_system(reset_paddles_velocity),
         )
         .add_system_set(SystemSet::on_update(States::WaitingPlayer).with_system(launch_ball))
         .add_system_set(
             SystemSet::on_update(States::InGame)
+                .with_system(produce_game_collision_events)
                 .with_system(move_player_paddle)
-                .with_system(track_balls_state),
+                .with_system(move_computer_paddle)
+                .with_system(speed_up_balls_with_touched_paddles)
+                .with_system(track_scoring_balls)
+                .with_system(regame_when_no_balls),
         )
         .run();
 }
@@ -93,8 +110,8 @@ fn spawn_paddles(mut commands: Commands) {
         })
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Paddle)
-                .with_masks(&[GamePhysicsLayers::Ball, GamePhysicsLayers::Edge]),
+                .with_group(GamePhysicsLayer::Paddle)
+                .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
         )
         .insert(PlayerPaddle);
 
@@ -122,8 +139,8 @@ fn spawn_paddles(mut commands: Commands) {
         })
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Paddle)
-                .with_masks(&[GamePhysicsLayers::Ball, GamePhysicsLayers::Edge]),
+                .with_group(GamePhysicsLayer::Paddle)
+                .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Edge]),
         )
         .insert(ComputerPaddle);
 }
@@ -142,8 +159,8 @@ fn spawn_goals(mut commands: Commands) {
         .insert(RotationConstraints::lock())
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Goal)
-                .with_mask(GamePhysicsLayers::Ball),
+                .with_group(GamePhysicsLayer::Goal)
+                .with_mask(GamePhysicsLayer::Ball),
         )
         .insert(PlayerGoal);
 
@@ -160,8 +177,8 @@ fn spawn_goals(mut commands: Commands) {
         .insert(RotationConstraints::lock())
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Goal)
-                .with_mask(GamePhysicsLayers::Ball),
+                .with_group(GamePhysicsLayer::Goal)
+                .with_mask(GamePhysicsLayer::Ball),
         )
         .insert(ComputerGoal);
 }
@@ -183,8 +200,8 @@ fn spawn_edges(mut commands: Commands) {
         })
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Edge)
-                .with_masks(&[GamePhysicsLayers::Ball, GamePhysicsLayers::Paddle]),
+                .with_group(GamePhysicsLayer::Edge)
+                .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Paddle]),
         );
 
     // Bottom edge
@@ -203,33 +220,59 @@ fn spawn_edges(mut commands: Commands) {
         })
         .insert(
             CollisionLayers::none()
-                .with_group(GamePhysicsLayers::Edge)
-                .with_masks(&[GamePhysicsLayers::Ball, GamePhysicsLayers::Paddle]),
+                .with_group(GamePhysicsLayer::Edge)
+                .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Paddle]),
         );
 }
 
-fn spawn_middle_line(mut commands: Commands) {
-    // Top of the middle line
+fn spawn_field_lines(mut commands: Commands) {
+    // Top horizontal line
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(0.1, 10.)),
+            custom_size: Some(Vec2::new(22., 0.1)),
             ..Default::default()
         },
-        transform: Transform::from_translation(Vec3::new(0., 5.8, 0.)),
+        transform: Transform::from_translation(Vec3::new(0., 6., 0.)),
         ..Default::default()
     });
 
-    // Bottom of the middle line
+    // Bottom horizontal line
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(0.1, 10.)),
+            custom_size: Some(Vec2::new(22., 0.1)),
             ..Default::default()
         },
-        transform: Transform::from_translation(Vec3::new(0., -5.8, 0.)),
+        transform: Transform::from_translation(Vec3::new(0., -6., 0.)),
         ..Default::default()
     });
+
+    // Top of the middle vertical line
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: WHITE_COLOR,
+            custom_size: Some(Vec2::new(0.1, 5.)),
+            ..Default::default()
+        },
+        transform: Transform::from_translation(Vec3::new(0., 3.5, 0.)),
+        ..Default::default()
+    });
+
+    // Bottom of the middle vertical line
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: WHITE_COLOR,
+            custom_size: Some(Vec2::new(0.1, 5.)),
+            ..Default::default()
+        },
+        transform: Transform::from_translation(Vec3::new(0., -3.5, 0.)),
+        ..Default::default()
+    });
+}
+
+fn ready_to_play(mut state: ResMut<State<States>>) {
+    state.set(States::WaitingPlayer).unwrap()
 }
 
 fn spawn_static_ball(mut commands: Commands, ball_assets: Res<BallAssets>) {
@@ -247,12 +290,22 @@ fn spawn_static_ball(mut commands: Commands, ball_assets: Res<BallAssets>) {
             restitution: PhysicMaterial::PERFECTLY_ELASTIC_RESTITUTION,
             ..Default::default()
         })
-        .insert(CollisionLayers::none().with_group(GamePhysicsLayers::Ball).with_masks(&[
-            GamePhysicsLayers::Paddle,
-            GamePhysicsLayers::Goal,
-            GamePhysicsLayers::Edge,
+        .insert(CollisionLayers::none().with_group(GamePhysicsLayer::Ball).with_masks(&[
+            GamePhysicsLayer::Paddle,
+            GamePhysicsLayer::Goal,
+            GamePhysicsLayer::Edge,
         ]))
         .insert(Ball::default());
+}
+
+// TODO we must also reset the translation, but we declared it as a
+//      KinematicVelocityBased entity so rapier ignores when we touch the position.
+fn reset_paddles_velocity(
+    mut paddles_query: Query<&mut Velocity, Or<(With<PlayerPaddle>, With<ComputerPaddle>)>>,
+) {
+    for mut velocity in paddles_query.iter_mut() {
+        *velocity = Default::default();
+    }
 }
 
 fn launch_ball(
@@ -285,23 +338,87 @@ fn move_player_paddle(
     }
 }
 
-fn track_balls_state(_balls_query: Query<&mut Ball>) {
-    // ...
+fn move_computer_paddle(
+    mut computer_paddle_query: Query<(&mut Velocity, &GlobalTransform), With<ComputerPaddle>>,
+    balls_query: Query<&GlobalTransform, With<Ball>>,
+) {
+    for (mut velocity, global_transform) in computer_paddle_query.iter_mut() {
+        let position = global_transform.translation;
+        if let Some(nearest_ball_transform) = balls_query
+            .iter()
+            .min_by_key(|t| OrderedFloat(t.translation.distance_squared(position)))
+        {
+            let distance_y = nearest_ball_transform.translation[1] - position[1];
+            let speed = distance_y.clamp(-PADDLE_SPEED, PADDLE_SPEED);
+            velocity.linear = Vec3::new(0., speed, 0.);
+        }
+    }
+}
+
+fn speed_up_balls_with_touched_paddles(
+    mut collision_events: EventReader<GameCollisionEvent>,
+    mut balls_query: Query<(&mut Velocity, &mut Ball)>,
+) {
+    use GameCollisionEvent::*;
+
+    for event in collision_events.iter() {
+        if let BallAndPaddle { status: CollisionStatus::Stopped, ball, .. } = event {
+            if let Ok((mut velocity, mut ball)) = balls_query.get_mut(*ball) {
+                ball.touched_paddles += 1;
+                velocity.linear *= 1. + BALL_TOUCH_PADDLE_SPEED_UP;
+            }
+        }
+    }
+}
+
+fn track_scoring_balls(
+    mut commands: Commands,
+    mut collision_events: EventReader<GameCollisionEvent>,
+    mut score: ResMut<GameScore>,
+    goals_query: Query<(Option<&PlayerGoal>, Option<&ComputerGoal>)>,
+) {
+    use GameCollisionEvent::*;
+
+    for event in collision_events.iter() {
+        if let BallAndGoal { status: CollisionStatus::Started, ball, goal } = event {
+            if let Ok((player, computer)) = goals_query.get(*goal) {
+                if player.is_some() {
+                    score.player_health = score.player_health.saturating_sub(BALL_SCORE_DAMAGE);
+                } else if computer.is_some() {
+                    score.computer_health = score.computer_health.saturating_sub(BALL_SCORE_DAMAGE);
+                }
+                commands.entity(*ball).despawn_recursive();
+            }
+        }
+    }
+}
+
+fn regame_when_no_balls(mut state: ResMut<State<States>>, balls_query: Query<(), With<Ball>>) {
+    if balls_query.is_empty() {
+        state.set(States::WaitingPlayer).unwrap();
+    }
+}
+
+struct GameScore {
+    computer_health: usize,
+    computer_score: usize,
+
+    player_health: usize,
+    player_score: usize,
+}
+
+impl Default for GameScore {
+    fn default() -> GameScore {
+        GameScore { computer_health: 100, computer_score: 0, player_health: 100, player_score: 0 }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum States {
     AssetLoading,
+    InitGameField,
     WaitingPlayer,
     InGame,
-}
-
-#[derive(PhysicsLayer)]
-enum GamePhysicsLayers {
-    Edge,
-    Ball,
-    Paddle,
-    Goal,
 }
 
 #[derive(Component)]
