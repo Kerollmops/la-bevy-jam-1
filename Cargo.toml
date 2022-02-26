@@ -4,11 +4,15 @@ description = "Our participation to the Bevy Jam #1"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 bevy = "0.6.1"
 bevy_asset_loader = { version = "0.9.0", features = ["render"] }
 heron = { version = "2.0.0", features = ["2d"] }
 rand = "0.8.5"
+wasm-bindgen = "0.2.79"
 
 [features]
 debug-2d = ["heron/debug-2d"]

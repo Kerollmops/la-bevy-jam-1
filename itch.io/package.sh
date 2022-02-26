@@ -7,6 +7,12 @@ if [ ! -f "Cargo.toml" ]; then
     exit 1
 fi
 
+if ! command -v 'wasm-pack' &> /dev/null; then
+    echo "Please, install wasm-pack before running this command"
+    echo "cargo install wasm-pack"
+    exit 1
+fi
+
 # compile and prepare the project for web target
 wasm-pack build --target web
 
