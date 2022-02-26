@@ -4,6 +4,9 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
+use heron::rapier_plugin::convert::IntoRapier;
+use heron::rapier_plugin::rapier2d::dynamics::RigidBodySet;
+use heron::rapier_plugin::RigidBodyHandle;
 use ordered_float::OrderedFloat;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
@@ -61,6 +64,7 @@ pub fn init() {
         .add_system_set(
             SystemSet::on_enter(States::WaitingPlayer)
                 .with_system(spawn_static_ball)
+                .with_system(enable_spawned_balls_ccd)
                 .with_system(reset_bonuses)
                 .with_system(reset_bonuses_timers)
                 .with_system(reset_paddles_velocity),
@@ -69,6 +73,7 @@ pub fn init() {
         .add_system_set(
             SystemSet::on_update(States::InGame)
                 .with_system(produce_game_collision_events)
+                .with_system(enable_spawned_balls_ccd)
                 .with_system(move_player_paddle)
                 .with_system(move_computer_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
@@ -115,6 +120,19 @@ fn spawn_static_ball(mut commands: Commands, assets: Res<BallAssets>) {
             GamePhysicsLayer::Bonus,
         ]))
         .insert(Ball::default());
+}
+
+/// Enable the CCD to the spawned balls, things that can go fast.
+/// <https://rapier.rs/docs/user_guides/bevy_plugin/rigid_bodies/#continuous-collision-detection>
+fn enable_spawned_balls_ccd(
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    new_handles: Query<&RigidBodyHandle, (Added<RigidBodyHandle>, With<Ball>)>,
+) {
+    for handle in new_handles.iter() {
+        if let Some(body) = rigid_bodies.get_mut(handle.into_rapier()) {
+            body.enable_ccd(true);
+        }
+    }
 }
 
 fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
