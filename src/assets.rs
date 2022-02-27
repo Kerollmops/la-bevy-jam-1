@@ -34,9 +34,21 @@ pub struct SpacebarAssets {
 
 #[derive(AssetCollection)]
 pub struct AudioAssets {
+    #[asset(path = "sfx/whistle.wav")]
+    pub whistle: Handle<AudioSource>,
+
+    #[asset(path = "sfx/powerup_gain.wav")]
+    pub powerup_gain: Handle<AudioSource>,
+
+    #[asset(path = "sfx/powerup_spawn.wav")]
+    pub powerup_spawn: Handle<AudioSource>,
+
+    #[asset(path = "sfx/goal.wav")]
+    pub goal: Handle<AudioSource>,
+
     #[asset(path = "sfx/hit_0.wav")]
     pub hit_0: Handle<AudioSource>,
 
-    #[asset(path = "sfx/blip.wav")]
-    pub blip: Handle<AudioSource>,
+    #[asset(path = "sfx/hit_1.wav")]
+    pub hit_1: Handle<AudioSource>,
 }

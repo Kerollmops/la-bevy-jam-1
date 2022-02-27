@@ -119,7 +119,10 @@ fn generate_animations(
         .add(SpriteSheetAnimation::from_range(0..=2, Duration::from_millis(180)).repeat());
 }
 
-fn display_spacebar_animation(mut commands: Commands, spacebar_assets: ResMut<SpacebarAssets>) {
+fn display_spacebar_animation(
+    mut commands: Commands,
+    spacebar_assets: ResMut<SpacebarAssets>,
+) {
     commands
         .spawn_bundle(SpriteSheetBundle {
             sprite: TextureAtlasSprite {
@@ -133,15 +136,21 @@ fn display_spacebar_animation(mut commands: Commands, spacebar_assets: ResMut<Sp
         .insert(spacebar_assets.loop_animation.clone())
         .insert(Play)
         .insert(SpacebarAnimation);
+
+
 }
 
 fn hide_spacebar_animation(
     mut commands: Commands,
     spacebar_query: Query<Entity, With<SpacebarAnimation>>,
+    audio_assets: Res<AudioAssets>,
+    audio: Res<Audio>,
 ) {
     for entity in spacebar_query.iter() {
         commands.entity(entity).despawn();
     }
+
+    audio.play(audio_assets.whistle.clone());
 }
 
 // TODO remove that system if possible
@@ -358,7 +367,7 @@ fn track_scoring_balls(
                     }
                 }
 
-                audio.play(audio_assets.hit_0.clone());
+                audio.play(audio_assets.goal.clone());
                 commands.entity(*ball).despawn_recursive();
             }
         }
@@ -395,8 +404,12 @@ fn blip_on_ball_collisions(
     use GameCollisionEvent::*;
 
     for event in collision_events.iter() {
-        if matches!(event, BallAndPaddle { .. } | BallAndEdge { .. }) {
-            audio.play(audio_assets.blip.clone());
+        if matches!(event, BallAndEdge { .. }) {
+            audio.play(audio_assets.hit_0.clone());
+        }
+
+        if matches!(event, BallAndPaddle { .. }) {
+            audio.play(audio_assets.hit_1.clone());
         }
     }
 }
@@ -411,6 +424,8 @@ fn spawn_bonuses(
     mut commands: Commands,
     mut spawn_bonus_event: EventReader<SpawnBonusEvent>,
     bonuses_assets: Res<BonusesAssets>,
+    audio_assets: Res<AudioAssets>,
+    audio: Res<Audio>,
 ) {
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-10.0..10.0);
@@ -457,6 +472,8 @@ fn spawn_bonuses(
                 commands.insert(BonusType::BallsVerticalGravity);
             }
         }
+
+        audio.play(audio_assets.powerup_spawn.clone());
     }
 }
 
@@ -467,6 +484,8 @@ fn manage_taken_bonuses(
     balls_query: Query<&Ball>,
     bonuses_query: Query<&BonusType>,
     paddles_query: Query<&Paddle>,
+    audio_assets: Res<AudioAssets>,
+    audio: Res<Audio>,
 ) {
     use CollisionStatus::*;
     use GameCollisionEvent::*;
@@ -494,6 +513,8 @@ fn manage_taken_bonuses(
                             };
                             taken_bonus_writer.send(bonus);
                             commands.entity(*bonus_entity).despawn_recursive();
+
+                            audio.play(audio_assets.powerup_gain.clone());
                         }
                     }
                 }
