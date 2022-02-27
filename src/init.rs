@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
-use crate::{Goal, Paddle, Side, BLUE_COLOR, WHITE_COLOR};
+use crate::{Goal, Lifebar, LifebarAssets, Paddle, Side, BLUE_COLOR, WHITE_COLOR};
 
 pub fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
@@ -230,4 +230,35 @@ pub fn spawn_field_lines(mut commands: Commands) {
         transform: Transform::from_translation(Vec3::new(0., -3.5, 0.)),
         ..Default::default()
     });
+}
+
+pub fn spawn_lifebars(mut commands: Commands, assets: Res<LifebarAssets>) {
+    // Computer life bar
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(-7.5, 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 15,
+                custom_size: Some(Vec2::new(6., 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Lifebar::Computer);
+
+    // Player life bar
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(7.5, 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 15,
+                flip_x: true,
+                custom_size: Some(Vec2::new(6., 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Lifebar::Player);
 }

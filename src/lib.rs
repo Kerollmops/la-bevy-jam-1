@@ -38,9 +38,9 @@ pub fn wasm_main() {
 pub fn init() {
     let mut app = App::new();
     AssetLoader::new(States::AssetLoading)
-        .with_collection::<GameAssets>()
         .with_collection::<BallAssets>()
         .with_collection::<BonusesAssets>()
+        .with_collection::<LifebarAssets>()
         .continue_to_state(States::InitGameField)
         .build(&mut app);
 
@@ -66,6 +66,7 @@ pub fn init() {
                 .with_system(spawn_edges)
                 .with_system(spawn_sides)
                 .with_system(spawn_field_lines)
+                .with_system(spawn_lifebars)
                 .with_system(ready_to_wait_player),
         )
         .add_system_set(
@@ -284,6 +285,7 @@ fn speed_up_balls_with_touched_edges(
 fn track_scoring_balls(
     mut commands: Commands,
     mut collision_events: EventReader<GameCollisionEvent>,
+    mut lifebar_query: Query<(&mut TextureAtlasSprite, &Lifebar)>,
     mut score: ResMut<GameScore>,
     goals_query: Query<&Goal>,
 ) {
@@ -294,11 +296,20 @@ fn track_scoring_balls(
             if let Ok(goal) = goals_query.get(*goal) {
                 match goal {
                     Goal::Player => {
-                        score.player_health = score.player_health.saturating_sub(BALL_SCORE_DAMAGE);
+                        score.player_health = score.player_health.saturating_sub(1);
+                        for (mut texture_atlas_sprite, lifebar) in lifebar_query.iter_mut() {
+                            if let Lifebar::Player = lifebar {
+                                texture_atlas_sprite.index = score.player_health;
+                            }
+                        }
                     }
                     Goal::Computer => {
-                        score.computer_health =
-                            score.computer_health.saturating_sub(BALL_SCORE_DAMAGE);
+                        score.computer_health = score.computer_health.saturating_sub(1);
+                        for (mut texture_atlas_sprite, lifebar) in lifebar_query.iter_mut() {
+                            if let Lifebar::Computer = lifebar {
+                                texture_atlas_sprite.index = score.computer_health;
+                            }
+                        }
                     }
                 }
 
@@ -544,11 +555,11 @@ fn manage_balls_vertical_gravity_bonus(
 }
 
 struct GameScore {
-    computer_health: usize,
+    computer_health: usize, // from 1 to 16
     computer_score: usize,
     computer_bonuses: Vec<Bonus>,
 
-    player_health: usize,
+    player_health: usize, // from 1 to 16
     player_score: usize,
     player_bonuses: Vec<Bonus>,
 }
@@ -556,10 +567,10 @@ struct GameScore {
 impl Default for GameScore {
     fn default() -> GameScore {
         GameScore {
-            computer_health: 100,
+            computer_health: 15,
             computer_score: 0,
             computer_bonuses: Vec::new(),
-            player_health: 100,
+            player_health: 15,
             player_score: 0,
             player_bonuses: Vec::new(),
         }
@@ -625,4 +636,10 @@ enum BonusType {
     SplitBall,
     BallSpeedInArea,
     BallsVerticalGravity,
+}
+
+#[derive(Component)]
+enum Lifebar {
+    Player,
+    Computer,
 }
