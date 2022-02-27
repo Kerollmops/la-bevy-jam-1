@@ -23,9 +23,9 @@ const WHITE_COLOR: Color = Color::rgb(0.922, 0.922, 0.922);
 const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
 
 const PADDLE_SPEED: f32 = 10.0;
-const BALL_SPEED: f32 = 5.0;
-const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.1;
-const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.05;
+const BALL_SPEED: f32 = 7.0;
+const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.05;
+const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.025;
 const BALL_SCORE_DAMAGE: usize = 10;
 
 // For wasm-pack to be happy...
