@@ -45,7 +45,7 @@ pub fn spawn_paddles(mut commands: Commands) {
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
                 color: RED_COLOR,
-                custom_size: Some(Vec2::new(0.5, 5.)),
+                custom_size: Some(Vec2::new(0.5, 8.)),
                 ..Default::default()
             },
             transform: Transform::from_translation(Vec3::new(-11., 0., 0.)),
@@ -54,7 +54,7 @@ pub fn spawn_paddles(mut commands: Commands) {
         .insert(Velocity::default())
         .insert(RigidBody::KinematicVelocityBased)
         .insert(CollisionShape::Cuboid {
-            half_extends: Vec3::new(0.25, 2.5, 0.),
+            half_extends: Vec3::new(0.25, 4., 0.),
             border_radius: None,
         })
         .insert(RotationConstraints::lock())
