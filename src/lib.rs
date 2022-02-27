@@ -64,8 +64,9 @@ pub fn init() {
                 .with_system(spawn_paddles)
                 .with_system(spawn_goals)
                 .with_system(spawn_edges)
+                .with_system(spawn_sides)
                 .with_system(spawn_field_lines)
-                .with_system(ready_to_play),
+                .with_system(ready_to_wait_player),
         )
         .add_system_set(
             SystemSet::on_enter(States::WaitingPlayer)
@@ -99,8 +100,8 @@ pub fn init() {
         .run();
 }
 
-// TODO remove that system
-fn ready_to_play(mut state: ResMut<State<States>>) {
+// TODO remove that system if possible
+fn ready_to_wait_player(mut state: ResMut<State<States>>) {
     state.set(States::WaitingPlayer).unwrap()
 }
 
@@ -127,6 +128,7 @@ fn spawn_static_ball(mut commands: Commands, assets: Res<BallAssets>) {
             GamePhysicsLayer::Paddle,
             GamePhysicsLayer::Goal,
             GamePhysicsLayer::Edge,
+            GamePhysicsLayer::Side,
             GamePhysicsLayer::Bonus,
         ]))
         .insert(Ball::default());
@@ -561,6 +563,12 @@ enum Paddle {
 
 #[derive(Component, Copy, Clone)]
 enum Goal {
+    Player,
+    Computer,
+}
+
+#[derive(Component, Copy, Clone)]
+enum Side {
     Player,
     Computer,
 }

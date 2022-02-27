@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
-use crate::{Goal, Paddle, BLUE_COLOR, WHITE_COLOR};
+use crate::{Goal, Paddle, Side, BLUE_COLOR, WHITE_COLOR};
 
 pub fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
@@ -148,6 +148,42 @@ pub fn spawn_edges(mut commands: Commands) {
                 .with_group(GamePhysicsLayer::Edge)
                 .with_masks(&[GamePhysicsLayer::Ball, GamePhysicsLayer::Paddle]),
         );
+}
+
+pub fn spawn_sides(mut commands: Commands) {
+    // Right side
+    commands
+        .spawn()
+        .insert(Transform::from_translation(Vec3::new(5.75, 0., 0.)))
+        .insert(GlobalTransform::default())
+        .insert(RigidBody::Sensor)
+        .insert(CollisionShape::Cuboid {
+            half_extends: Vec3::new(5.75, 6., 0.),
+            border_radius: None,
+        })
+        .insert(
+            CollisionLayers::none()
+                .with_group(GamePhysicsLayer::Side)
+                .with_mask(GamePhysicsLayer::Ball),
+        )
+        .insert(Side::Player);
+
+    // Left side
+    commands
+        .spawn()
+        .insert(Transform::from_translation(Vec3::new(-5.75, 0., 0.)))
+        .insert(GlobalTransform::default())
+        .insert(RigidBody::Sensor)
+        .insert(CollisionShape::Cuboid {
+            half_extends: Vec3::new(5.75, 6., 0.),
+            border_radius: None,
+        })
+        .insert(
+            CollisionLayers::none()
+                .with_group(GamePhysicsLayer::Side)
+                .with_mask(GamePhysicsLayer::Ball),
+        )
+        .insert(Side::Computer);
 }
 
 pub fn spawn_field_lines(mut commands: Commands) {
