@@ -4,6 +4,7 @@ use std::time::Duration;
 use benimator::*;
 use bevy::prelude::*;
 use bevy_asset_loader::AssetLoader;
+use bevy_kira_audio::{Audio, AudioPlugin};
 use heron::prelude::*;
 use heron::rapier_plugin::convert::IntoRapier;
 use heron::rapier_plugin::rapier2d::dynamics::RigidBodySet;
@@ -12,11 +13,11 @@ use ordered_float::OrderedFloat;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
 
-use self::game_assets::*;
+use self::assets::*;
 use self::game_collisions::*;
 use self::init::*;
 
-mod game_assets;
+mod assets;
 mod game_collisions;
 mod init;
 
@@ -43,6 +44,7 @@ pub fn init() {
         .with_collection::<BonusesAssets>()
         .with_collection::<LifebarAssets>()
         .with_collection::<SpacebarAssets>()
+        .with_collection::<AudioAssets>()
         .continue_to_state(States::InitGame)
         .build(&mut app);
 
@@ -60,6 +62,7 @@ pub fn init() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(AnimationPlugin::default())
+        .add_plugin(AudioPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
         .add_startup_system(camera_setup)
         .add_system_set(
@@ -327,6 +330,8 @@ fn track_scoring_balls(
     mut lifebar_query: Query<(&mut TextureAtlasSprite, &Lifebar)>,
     mut score: ResMut<GameScore>,
     goals_query: Query<&Goal>,
+    audio_assets: Res<AudioAssets>,
+    audio: Res<Audio>,
 ) {
     use GameCollisionEvent::*;
 
@@ -352,6 +357,7 @@ fn track_scoring_balls(
                     }
                 }
 
+                audio.play(audio_assets.hit_0.clone());
                 commands.entity(*ball).despawn_recursive();
             }
         }

@@ -9,12 +9,29 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 benimator = "2.0.1"
-bevy = "0.6.1"
 bevy_asset_loader = { version = "0.9.0", features = ["render"] }
 heron = { version = "2.0.0", features = ["2d"] }
 ordered-float = "2.10.0"
 rand = "0.8.5"
 wasm-bindgen = "0.2.79"
+
+[dependencies.bevy]
+version = "0.6"
+default-features = false
+features = [
+  "render",
+  "bevy_winit",
+  "bevy_gilrs",
+  "png",
+  "hdr",
+  "filesystem_watcher",
+  "x11"
+]
+
+[dependencies.bevy_kira_audio]
+version = "0.8.0"
+default-features = false
+features = ["wav"]
 
 [features]
 debug-2d = ["heron/debug-2d"]

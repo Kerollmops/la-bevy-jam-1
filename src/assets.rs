@@ -1,6 +1,7 @@
 use benimator::SpriteSheetAnimation;
 use bevy::prelude::*;
 use bevy_asset_loader::AssetCollection;
+use bevy_kira_audio::AudioSource;
 
 #[derive(AssetCollection)]
 pub struct BonusesAssets {
@@ -29,4 +30,10 @@ pub struct SpacebarAssets {
     #[asset(path = "images/spacebar.png")]
     pub texture_atlas: Handle<TextureAtlas>,
     pub loop_animation: Handle<SpriteSheetAnimation>,
+}
+
+#[derive(AssetCollection)]
+pub struct AudioAssets {
+    #[asset(path = "sfx/hit_0.wav")]
+    pub hit_0: Handle<AudioSource>,
 }
