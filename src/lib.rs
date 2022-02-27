@@ -21,6 +21,7 @@ mod init;
 
 const WHITE_COLOR: Color = Color::rgb(0.922, 0.922, 0.922);
 const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
+const RED_COLOR: Color = Color::rgb(1., 0.706, 0.706);
 
 const PADDLE_SPEED: f32 = 10.0;
 const BALL_SPEED: f32 = 7.0;
@@ -52,7 +53,7 @@ pub fn init() {
         .insert_resource(BonusesTimers {
             split_ball: Timer::new(Duration::from_secs(5), false),
             ball_speed_on_area: Timer::new(Duration::from_secs(15), false),
-            balls_vertical_gravity: Timer::new(Duration::from_secs(2), false),
+            balls_vertical_gravity: Timer::new(Duration::from_secs(30), false),
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
@@ -320,14 +321,21 @@ fn track_scoring_balls(
 
 fn track_balls_touching_paddles(
     mut collision_events: EventReader<GameCollisionEvent>,
-    mut balls_query: Query<&mut Ball>,
+    mut balls_query: Query<(&mut TextureAtlasSprite, &mut Ball)>,
+    paddles_query: Query<&Paddle>,
 ) {
     use GameCollisionEvent::*;
 
     for event in collision_events.iter() {
         if let BallAndPaddle { status: CollisionStatus::Stopped, ball, paddle } = event {
-            if let Ok(mut ball) = balls_query.get_mut(*ball) {
+            if let Ok((mut texture_atlas_sprite, mut ball)) = balls_query.get_mut(*ball) {
                 ball.last_touched_paddle = Some(*paddle);
+                if let Ok(paddle) = paddles_query.get(*paddle) {
+                    match paddle {
+                        Paddle::Player => texture_atlas_sprite.color = BLUE_COLOR,
+                        Paddle::Computer => texture_atlas_sprite.color = RED_COLOR,
+                    }
+                }
             }
         }
     }

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
-use crate::{Goal, Lifebar, LifebarAssets, Paddle, Side, BLUE_COLOR, WHITE_COLOR};
+use crate::{Goal, Lifebar, LifebarAssets, Paddle, Side, BLUE_COLOR, RED_COLOR, WHITE_COLOR};
 
 pub fn camera_setup(mut commands: Commands) {
     let mut camera_bundle = OrthographicCameraBundle::new_2d();
@@ -44,7 +44,7 @@ pub fn spawn_paddles(mut commands: Commands) {
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
-                color: WHITE_COLOR,
+                color: RED_COLOR,
                 custom_size: Some(Vec2::new(0.5, 5.)),
                 ..Default::default()
             },
