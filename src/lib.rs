@@ -89,7 +89,6 @@ pub fn init() {
                 .with_system(track_scoring_balls)
                 .with_system(track_balls_touching_paddles)
                 .with_system(tick_bonuses_timers)
-                .with_system(remove_stalled_balls)
                 .with_system(spawn_bonuses)
                 .with_system(manage_taken_bonuses)
                 .with_system(store_taken_bonuses_in_score)
@@ -327,19 +326,6 @@ fn track_balls_touching_paddles(
 fn regame_when_no_balls(mut state: ResMut<State<States>>, balls_query: Query<(), With<Ball>>) {
     if balls_query.is_empty() {
         state.set(States::WaitingPlayer).unwrap();
-    }
-}
-
-/// TODO detect stalled balls by adding a timer to
-/// them and reseting them at every collision with paddles
-fn remove_stalled_balls(
-    mut commands: Commands,
-    balls_query: Query<(Entity, &Velocity), With<Ball>>,
-) {
-    for (entity, velocity) in balls_query.iter() {
-        if velocity.linear[1].abs() < 0.1 {
-            commands.entity(entity).despawn_recursive();
-        }
     }
 }
 
