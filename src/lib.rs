@@ -518,16 +518,16 @@ fn manage_ball_speed_on_area_bonus(
                     if let Ok(mut velocity) = balls_query.get_mut(*ball) {
                         match (side, status) {
                             (Side::Player, Started) => {
-                                velocity.linear /= 1. + 1.5 * computer_speedups as f32;
-                            }
-                            (Side::Player, Stopped) => {
                                 velocity.linear *= 1. + 1.5 * computer_speedups as f32;
                             }
+                            (Side::Player, Stopped) => {
+                                velocity.linear /= 1. + 1.5 * computer_speedups as f32;
+                            }
                             (Side::Computer, Started) => {
-                                velocity.linear /= 1. + 1.5 * player_speedups as f32;
+                                velocity.linear *= 1. + 1.5 * player_speedups as f32;
                             }
                             (Side::Computer, Stopped) => {
-                                velocity.linear *= 1. + 1.5 * player_speedups as f32;
+                                velocity.linear /= 1. + 1.5 * player_speedups as f32;
                             }
                         }
                     }
