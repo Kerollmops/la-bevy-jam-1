@@ -73,6 +73,7 @@ pub fn init() {
                 .with_system(spawn_static_ball)
                 .with_system(enable_spawned_balls_ccd)
                 .with_system(reset_bonuses)
+                .with_system(reset_owned_bonuses)
                 .with_system(reset_bonuses_timers)
                 .with_system(reset_paddles_velocity),
         )
@@ -149,6 +150,8 @@ fn enable_spawned_balls_ccd(
 
 fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
     bonuses_timers.split_ball.reset();
+    bonuses_timers.ball_speed_on_area.reset();
+    bonuses_timers.herd_on_area.reset();
 }
 
 fn tick_bonuses_timers(
@@ -160,7 +163,7 @@ fn tick_bonuses_timers(
         spawn_bonus_event.send(SpawnBonusEvent(BonusType::SplitBall));
     }
     if bonuses_timers.ball_speed_on_area.tick(time.delta()).just_finished() {
-        spawn_bonus_event.send(SpawnBonusEvent(BonusType::BallSpeedOnArea));
+        spawn_bonus_event.send(SpawnBonusEvent(BonusType::BallSpeedInArea));
     }
     if bonuses_timers.herd_on_area.tick(time.delta()).just_finished() {
         spawn_bonus_event.send(SpawnBonusEvent(BonusType::HerdOnArea));
@@ -171,6 +174,11 @@ fn reset_bonuses(mut command: Commands, bonuses_query: Query<Entity, With<BonusT
     for entity in bonuses_query.iter() {
         command.entity(entity).despawn_recursive();
     }
+}
+
+fn reset_owned_bonuses(mut game_score: ResMut<GameScore>) {
+    game_score.player_bonuses.clear();
+    game_score.computer_bonuses.clear();
 }
 
 // TODO we must also reset the translation, but we declared it as a
@@ -226,7 +234,7 @@ fn move_computer_paddle(
             let position = global_transform.translation;
             if let Some(nearest_ball_transform) = balls_query
                 .iter()
-                .min_by_key(|t| OrderedFloat(t.translation.distance_squared(position)))
+                .min_by_key(|t| OrderedFloat((t.translation[0] - position[0]).abs()))
             {
                 let distance_y = nearest_ball_transform.translation[1] - position[1];
                 let speed = if distance_y < 1.0 && distance_y > -1.0 {
@@ -268,7 +276,6 @@ fn speed_up_balls_with_touched_edges(
     for event in collision_events.iter() {
         if let BallAndEdge { status: CollisionStatus::Stopped, ball, .. } = event {
             if let Ok((mut velocity, mut ball)) = balls_query.get_mut(*ball) {
-                ball.touched_paddles += 1;
                 velocity.linear *= 1. + BALL_TOUCH_EDGE_SPEED_UP;
             }
         }
@@ -348,7 +355,8 @@ fn spawn_bonuses(
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
         let index = match bonus {
             BonusType::SplitBall => 0,
-            BonusType::BallSpeedOnArea => 0,
+            BonusType::BallSpeedInArea => 0,
+            BonusType::BallsVerticalGravity => 0,
             BonusType::HerdOnArea => 0,
         };
 
@@ -379,8 +387,11 @@ fn spawn_bonuses(
             BonusType::SplitBall => {
                 commands.insert(BonusType::SplitBall);
             }
-            BonusType::BallSpeedOnArea => {
-                commands.insert(BonusType::BallSpeedOnArea);
+            BonusType::BallSpeedInArea => {
+                commands.insert(BonusType::BallSpeedInArea);
+            }
+            BonusType::BallsVerticalGravity => {
+                commands.insert(BonusType::BallsVerticalGravity);
             }
             BonusType::HerdOnArea => {
                 commands.insert(BonusType::HerdOnArea);
@@ -411,9 +422,15 @@ fn manage_taken_bonuses(
                                     bonus: Bonus::SplitBall { ball: *ball_entity },
                                     paddle,
                                 },
-                                BonusType::BallSpeedOnArea => TakenBonusEvent {
-                                    bonus: Bonus::BallSpeedOnArea {
+                                BonusType::BallSpeedInArea => TakenBonusEvent {
+                                    bonus: Bonus::BallSpeedInArea {
                                         ball: *ball_entity,
+                                        benefiting_paddle: paddle,
+                                    },
+                                    paddle,
+                                },
+                                BonusType::BallsVerticalGravity => TakenBonusEvent {
+                                    bonus: Bonus::BallsVerticalGravity {
                                         benefiting_paddle: paddle,
                                     },
                                     paddle,
@@ -497,15 +514,42 @@ fn manage_split_ball_bonus(
 }
 
 fn manage_ball_speed_on_area_bonus(
-    mut commands: Commands,
-    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
-    balls_query: Query<(&Transform, &Velocity), With<Ball>>,
-    assets: Res<BallAssets>,
+    mut collision_events_reader: EventReader<GameCollisionEvent>,
+    game_score: Res<GameScore>,
+    mut balls_query: Query<&mut Velocity, With<Ball>>,
+    side_query: Query<&Side>,
 ) {
-    let mut rng = rand::thread_rng();
-    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
-        if let Bonus::HerdOnArea { benefiting_paddle } = bonus {
-            ()
+    use Bonus::*;
+    use CollisionStatus::*;
+
+    let player_speedups =
+        game_score.player_bonuses.iter().filter(|b| matches!(b, BallSpeedInArea { .. })).count();
+    let computer_speedups =
+        game_score.computer_bonuses.iter().filter(|b| matches!(b, BallSpeedInArea { .. })).count();
+
+    if player_speedups > 0 || computer_speedups > 0 {
+        for event in collision_events_reader.iter() {
+            if let GameCollisionEvent::BallAndSide { status, ball, side } = event {
+                if let Ok(side) = side_query.get(*side) {
+                    if let Ok(mut velocity) = balls_query.get_mut(*ball) {
+                        match (side, status) {
+                            (Side::Player, Started) => {
+                                velocity.linear *= 1. + 1.5 * computer_speedups as f32;
+                            }
+                            (Side::Player, Stopped) => {
+                                velocity.linear /= 1. + 1.5 * computer_speedups as f32;
+                            }
+                            (Side::Computer, Started) => {
+                                velocity.linear *= 1. + 1.5 * player_speedups as f32;
+                            }
+                            (Side::Computer, Stopped) => {
+                                velocity.linear /= 1. + 1.5 * player_speedups as f32;
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -518,7 +562,7 @@ fn manage_herd_on_area_bonus(
 ) {
     let mut rng = rand::thread_rng();
     for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
-        if let Bonus::BallSpeedOnArea { ball, benefiting_paddle } = bonus {
+        if let Bonus::BallSpeedInArea { ball, benefiting_paddle } = bonus {
             ()
         }
     }
@@ -555,7 +599,7 @@ enum States {
     InGame,
 }
 
-#[derive(Component, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 enum Paddle {
     Player,
     Computer,
@@ -588,21 +632,24 @@ struct BonusesTimers {
 
 struct SpawnBonusEvent(BonusType);
 
+#[derive(Debug)]
 struct TakenBonusEvent {
     bonus: Bonus,
     paddle: Paddle,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Bonus {
     SplitBall { ball: Entity },
-    BallSpeedOnArea { ball: Entity, benefiting_paddle: Paddle },
+    BallSpeedInArea { ball: Entity, benefiting_paddle: Paddle },
+    BallsVerticalGravity { benefiting_paddle: Paddle },
     HerdOnArea { benefiting_paddle: Paddle },
 }
 
 #[derive(Component, Clone, Copy)]
 enum BonusType {
     SplitBall,
-    BallSpeedOnArea,
+    BallSpeedInArea,
+    BallsVerticalGravity,
     HerdOnArea,
 }
