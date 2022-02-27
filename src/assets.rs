@@ -36,4 +36,7 @@ pub struct SpacebarAssets {
 pub struct AudioAssets {
     #[asset(path = "sfx/hit_0.wav")]
     pub hit_0: Handle<AudioSource>,
+
+    #[asset(path = "sfx/blip.wav")]
+    pub blip: Handle<AudioSource>,
 }

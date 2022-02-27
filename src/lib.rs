@@ -98,6 +98,7 @@ pub fn init() {
                 .with_system(speed_up_balls_with_touched_edges)
                 .with_system(track_scoring_balls)
                 .with_system(track_balls_touching_paddles)
+                .with_system(blip_on_ball_collisions)
                 .with_system(tick_bonuses_timers)
                 .with_system(spawn_bonuses)
                 .with_system(manage_taken_bonuses)
@@ -382,6 +383,20 @@ fn track_balls_touching_paddles(
                     }
                 }
             }
+        }
+    }
+}
+
+fn blip_on_ball_collisions(
+    mut collision_events: EventReader<GameCollisionEvent>,
+    audio_assets: Res<AudioAssets>,
+    audio: Res<Audio>,
+) {
+    use GameCollisionEvent::*;
+
+    for event in collision_events.iter() {
+        if matches!(event, BallAndPaddle { .. } | BallAndEdge { .. }) {
+            audio.play(audio_assets.blip.clone());
         }
     }
 }
