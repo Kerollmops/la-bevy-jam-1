@@ -26,7 +26,6 @@ const PADDLE_SPEED: f32 = 10.0;
 const BALL_SPEED: f32 = 7.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.05;
 const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.025;
-const BALL_SCORE_DAMAGE: usize = 10;
 
 // For wasm-pack to be happy...
 #[cfg(target_arch = "wasm32")]
@@ -352,8 +351,8 @@ fn spawn_bonuses(
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
         let index = match bonus {
             BonusType::SplitBall => 0,
-            BonusType::BallSpeedInArea => 0,
-            BonusType::BallsVerticalGravity => 0,
+            BonusType::BallSpeedInArea => 12,
+            BonusType::BallsVerticalGravity => 4,
         };
 
         let mut commands = commands.spawn_bundle(SpriteSheetBundle {
