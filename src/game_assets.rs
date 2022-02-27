@@ -5,9 +5,9 @@ use bevy_asset_loader::AssetCollection;
 pub struct GameAssets {}
 
 #[derive(AssetCollection)]
-pub struct CardAssets {
-    #[asset(texture_atlas(tile_size_x = 32., tile_size_y = 48., columns = 1, rows = 1))]
-    #[asset(path = "images/card.png")]
+pub struct BonusesAssets {
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 1, rows = 1))]
+    #[asset(path = "images/bonuses.png")]
     pub texture_atlas: Handle<TextureAtlas>,
 }
 

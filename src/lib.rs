@@ -40,7 +40,7 @@ pub fn init() {
     AssetLoader::new(States::AssetLoading)
         .with_collection::<GameAssets>()
         .with_collection::<BallAssets>()
-        .with_collection::<CardAssets>()
+        .with_collection::<BonusesAssets>()
         .continue_to_state(States::InitGameField)
         .build(&mut app);
 
@@ -337,19 +337,25 @@ fn remove_stalled_balls(
 fn spawn_bonuses(
     mut commands: Commands,
     mut spawn_bonus_event: EventReader<SpawnBonusEvent>,
-    assets: Res<CardAssets>,
+    bonuses_assets: Res<BonusesAssets>,
 ) {
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-10.0..10.0);
     let y = rng.gen_range(-6.0..6.0);
 
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
+        let index = match bonus {
+            BonusType::SplitBall => 0,
+            BonusType::BallSpeedOnArea => 0,
+            BonusType::HerdOnArea => 0,
+        };
+
         let mut commands = commands.spawn_bundle(SpriteSheetBundle {
-            texture_atlas: assets.texture_atlas.clone(),
+            texture_atlas: bonuses_assets.texture_atlas.clone(),
             transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
             sprite: TextureAtlasSprite {
-                index: 0,
-                custom_size: Some(Vec2::new(0.75, 1.0)),
+                index,
+                custom_size: Some(Vec2::new(0.75, 0.75)),
                 ..Default::default()
             },
             ..Default::default()
@@ -358,7 +364,7 @@ fn spawn_bonuses(
             .insert(Velocity::default())
             .insert(RigidBody::Sensor)
             .insert(CollisionShape::Cuboid {
-                half_extends: Vec3::new(0.25, 0.625, 0.),
+                half_extends: Vec3::new(0.375, 0.375, 0.),
                 border_radius: None,
             })
             .insert(
