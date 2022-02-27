@@ -119,10 +119,7 @@ fn generate_animations(
         .add(SpriteSheetAnimation::from_range(0..=2, Duration::from_millis(180)).repeat());
 }
 
-fn display_spacebar_animation(
-    mut commands: Commands,
-    spacebar_assets: ResMut<SpacebarAssets>,
-) {
+fn display_spacebar_animation(mut commands: Commands, spacebar_assets: ResMut<SpacebarAssets>) {
     commands
         .spawn_bundle(SpriteSheetBundle {
             sprite: TextureAtlasSprite {
@@ -136,8 +133,6 @@ fn display_spacebar_animation(
         .insert(spacebar_assets.loop_animation.clone())
         .insert(Play)
         .insert(SpacebarAnimation);
-
-
 }
 
 fn hide_spacebar_animation(
@@ -404,9 +399,9 @@ fn blip_on_ball_collisions(
     use GameCollisionEvent::*;
 
     for event in collision_events.iter() {
-        if matches!(event, BallAndEdge { .. }) {
-            audio.play(audio_assets.hit_0.clone());
-        }
+        // if matches!(event, BallAndEdge { .. }) {
+        //     //audio.play(audio_assets.hit_0.clone());
+        // }
 
         if matches!(event, BallAndPaddle { .. }) {
             audio.play(audio_assets.hit_1.clone());
