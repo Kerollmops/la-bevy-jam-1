@@ -1,3 +1,4 @@
+use benimator::SpriteSheetAnimation;
 use bevy::prelude::*;
 use bevy_asset_loader::AssetCollection;
 
@@ -20,4 +21,12 @@ pub struct LifebarAssets {
     #[asset(texture_atlas(tile_size_x = 192., tile_size_y = 16., columns = 1, rows = 16))]
     #[asset(path = "images/lifebar.png")]
     pub texture_atlas: Handle<TextureAtlas>,
+}
+
+#[derive(AssetCollection)]
+pub struct SpacebarAssets {
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 16., columns = 1, rows = 3))]
+    #[asset(path = "images/spacebar.png")]
+    pub texture_atlas: Handle<TextureAtlas>,
+    pub loop_animation: Handle<SpriteSheetAnimation>,
 }

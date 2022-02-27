@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use benimator::*;
 use bevy::prelude::*;
 use bevy_asset_loader::AssetLoader;
 use heron::prelude::*;
@@ -41,7 +42,8 @@ pub fn init() {
         .with_collection::<BallAssets>()
         .with_collection::<BonusesAssets>()
         .with_collection::<LifebarAssets>()
-        .continue_to_state(States::InitGameField)
+        .with_collection::<SpacebarAssets>()
+        .continue_to_state(States::InitGame)
         .build(&mut app);
 
     app.add_event::<GameCollisionEvent>()
@@ -57,10 +59,12 @@ pub fn init() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
+        .add_plugin(AnimationPlugin::default())
         .insert_resource(Gravity::from(Vec3::ZERO))
         .add_startup_system(camera_setup)
         .add_system_set(
-            SystemSet::on_enter(States::InitGameField)
+            SystemSet::on_enter(States::InitGame)
+                .with_system(generate_animations)
                 .with_system(spawn_paddles)
                 .with_system(spawn_goals)
                 .with_system(spawn_edges)
@@ -71,6 +75,7 @@ pub fn init() {
         )
         .add_system_set(
             SystemSet::on_enter(States::WaitingPlayer)
+                .with_system(display_spacebar_animation)
                 .with_system(spawn_static_ball)
                 .with_system(enable_spawned_balls_ccd)
                 .with_system(reset_bonuses)
@@ -79,6 +84,7 @@ pub fn init() {
                 .with_system(reset_paddles_velocity),
         )
         .add_system_set(SystemSet::on_update(States::WaitingPlayer).with_system(launch_ball))
+        .add_system_set(SystemSet::on_enter(States::InGame).with_system(hide_spacebar_animation))
         .add_system_set(
             SystemSet::on_update(States::InGame)
                 .with_system(produce_game_collision_events)
@@ -99,6 +105,39 @@ pub fn init() {
                 .with_system(regame_when_no_balls),
         )
         .run();
+}
+
+fn generate_animations(
+    mut spacebar_assets: ResMut<SpacebarAssets>,
+    mut animations: ResMut<Assets<SpriteSheetAnimation>>,
+) {
+    spacebar_assets.loop_animation = animations
+        .add(SpriteSheetAnimation::from_range(0..=2, Duration::from_millis(180)).repeat());
+}
+
+fn display_spacebar_animation(mut commands: Commands, spacebar_assets: ResMut<SpacebarAssets>) {
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            sprite: TextureAtlasSprite {
+                custom_size: Some(Vec2::new(4., 1.)),
+                ..Default::default()
+            },
+            texture_atlas: spacebar_assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(0., -1.5, 0.)),
+            ..Default::default()
+        })
+        .insert(spacebar_assets.loop_animation.clone())
+        .insert(Play)
+        .insert(SpacebarAnimation);
+}
+
+fn hide_spacebar_animation(
+    mut commands: Commands,
+    spacebar_query: Query<Entity, With<SpacebarAnimation>>,
+) {
+    for entity in spacebar_query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 // TODO remove that system if possible
@@ -587,7 +626,7 @@ impl Default for GameScore {
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum States {
     AssetLoading,
-    InitGameField,
+    InitGame,
     WaitingPlayer,
     InGame,
 }
@@ -650,3 +689,6 @@ enum Lifebar {
     Player,
     Computer,
 }
+
+#[derive(Component)]
+struct SpacebarAnimation;
