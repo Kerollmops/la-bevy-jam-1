@@ -336,7 +336,7 @@ fn spawn_bonuses(
 ) {
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-10.0..10.0);
-    let y = rng.gen_range(-6.0..6.0);
+    let y = rng.gen_range(-5.5..5.5);
 
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
         let index = match bonus {
