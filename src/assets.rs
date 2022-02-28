@@ -8,6 +8,10 @@ pub struct BonusesAssets {
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 4, rows = 5))]
     #[asset(path = "images/bonuses.png")]
     pub texture_atlas: Handle<TextureAtlas>,
+
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 2, rows = 1))]
+    #[asset(path = "images/shrink_increase_paddle.png")]
+    pub paddle_texture_atlas: Handle<TextureAtlas>,
 }
 
 #[derive(AssetCollection)]

@@ -466,16 +466,16 @@ fn spawn_bonuses(
     let y = rng.gen_range(-5.5..5.5);
 
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
-        let index = match bonus {
-            BonusType::SplitBall => 0,
-            BonusType::BallSpeedInArea => 12,
-            BonusType::BallsVerticalGravity => 4,
-            BonusType::ShrinkPaddleSize => 16,
-            BonusType::IncreasePaddleSize => 18,
+        let (texture_atlas, index) = match bonus {
+            BonusType::SplitBall => (bonuses_assets.texture_atlas.clone(), 0),
+            BonusType::BallSpeedInArea => (bonuses_assets.texture_atlas.clone(), 12),
+            BonusType::BallsVerticalGravity => (bonuses_assets.texture_atlas.clone(), 4),
+            BonusType::ShrinkPaddleSize => (bonuses_assets.paddle_texture_atlas.clone(), 1),
+            BonusType::IncreasePaddleSize => (bonuses_assets.paddle_texture_atlas.clone(), 0),
         };
 
         let mut commands = commands.spawn_bundle(SpriteSheetBundle {
-            texture_atlas: bonuses_assets.texture_atlas.clone(),
+            texture_atlas: texture_atlas,
             transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
             sprite: TextureAtlasSprite {
                 index,
