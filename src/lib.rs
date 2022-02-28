@@ -57,10 +57,11 @@ pub fn init() {
         .insert_resource(BonusesTimers(vec![
             (Timer::new(Duration::from_secs(5), false), BonusType::SplitBall),
             (Timer::new(Duration::from_secs(15), false), BonusType::BallSpeedInArea),
-            (Timer::new(Duration::from_secs(25), false), BonusType::ShrinkPaddleSize),
-            (Timer::new(Duration::from_secs(25 + 1), false), BonusType::ShrinkPaddleSize),
-            (Timer::new(Duration::from_secs(25 + 2), false), BonusType::ShrinkPaddleSize),
-            (Timer::new(Duration::from_secs(25 + 3), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(20), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(25), false), BonusType::IncreasePaddleSize),
+            (Timer::new(Duration::from_secs(25 + 1), false), BonusType::IncreasePaddleSize),
+            (Timer::new(Duration::from_secs(25 + 2), false), BonusType::IncreasePaddleSize),
+            (Timer::new(Duration::from_secs(25 + 3), false), BonusType::IncreasePaddleSize),
             (Timer::new(Duration::from_secs(30), false), BonusType::BallsVerticalGravity),
         ]))
         .add_plugins(DefaultPlugins)
@@ -88,7 +89,8 @@ pub fn init() {
                 .with_system(reset_bonuses)
                 .with_system(reset_owned_bonuses)
                 .with_system(reset_bonuses_timers)
-                .with_system(reset_paddles_velocity),
+                .with_system(reset_paddles_velocity)
+                .with_system(reset_paddle_sizes),
         )
         .add_system_set(SystemSet::on_update(States::WaitingPlayer).with_system(launch_ball))
         .add_system_set(SystemSet::on_enter(States::InGame).with_system(hide_spacebar_animation))
@@ -112,6 +114,7 @@ pub fn init() {
                 .with_system(manage_ball_speed_on_area_bonus)
                 .with_system(manage_balls_vertical_gravity_bonus)
                 .with_system(manage_shrink_paddle_size_bonus)
+                .with_system(manage_increase_paddle_size_bonus)
                 .with_system(regame_when_no_balls),
         )
         .run();
@@ -203,6 +206,23 @@ fn enable_spawned_balls_ccd(
 
 fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
     bonuses_timers.0.iter_mut().for_each(|(timer, _)| timer.reset());
+}
+
+fn reset_paddle_sizes(mut paddles_query: Query<(&mut CollisionShape, &mut Sprite, &Paddle)>) {
+    for (col, mut sprite, paddle) in paddles_query.iter_mut() {
+        let default_size = match paddle {
+            Paddle::Player => PLAYER_PADDLE_HEIGHT,
+            Paddle::Computer => COMPUTER_PADDLE_HEIGHT,
+        };
+
+        if let CollisionShape::Cuboid { mut half_extends, .. } = col.into_inner() {
+            half_extends[1] = default_size / 2.;
+        }
+
+        if let Some(size) = sprite.custom_size.as_mut() {
+            size[1] = default_size;
+        }
+    }
 }
 
 fn tick_bonuses_timers(
@@ -534,7 +554,9 @@ fn manage_taken_bonuses(
                                     paddle,
                                 },
                                 BonusType::ShrinkPaddleSize => TakenBonusEvent {
-                                    bonus: Bonus::ShrinkPaddleSize { impacted_paddle: paddle },
+                                    bonus: Bonus::ShrinkPaddleSize {
+                                        impacted_paddle: paddle.reverse(),
+                                    },
                                     paddle,
                                 },
                                 BonusType::IncreasePaddleSize => TakenBonusEvent {
@@ -734,6 +756,26 @@ fn manage_shrink_paddle_size_bonus(
     }
 }
 
+fn manage_increase_paddle_size_bonus(
+    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
+    mut paddles_query: Query<(&mut CollisionShape, &mut Sprite, &Paddle)>,
+) {
+    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
+        if let Bonus::IncreasePaddleSize { benefiting_paddle } = bonus {
+            for (col, mut sprite, paddle) in paddles_query.iter_mut() {
+                if benefiting_paddle == paddle {
+                    if let CollisionShape::Cuboid { mut half_extends, .. } = col.into_inner() {
+                        half_extends[1] = (half_extends[1] + 0.3).min(5.);
+                    }
+                    if let Some(size) = sprite.custom_size.as_mut() {
+                        size[1] = (size[1] + 0.6).min(10.);
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct GameScore {
     computer_health: usize, // from 1 to 16
     computer_score: usize,
@@ -769,6 +811,15 @@ enum States {
 enum Paddle {
     Player,
     Computer,
+}
+
+impl Paddle {
+    fn reverse(&self) -> Paddle {
+        match self {
+            Paddle::Player => Paddle::Computer,
+            Paddle::Computer => Paddle::Player,
+        }
+    }
 }
 
 #[derive(Component, Copy, Clone)]
