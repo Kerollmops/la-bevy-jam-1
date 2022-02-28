@@ -208,28 +208,6 @@ pub fn spawn_field_lines(mut commands: Commands) {
         transform: Transform::from_translation(Vec3::new(0., -6., 0.)),
         ..Default::default()
     });
-
-    // Top of the middle vertical line
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(0.1, 5.)),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(0., 3.5, 0.)),
-        ..Default::default()
-    });
-
-    // Bottom of the middle vertical line
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: WHITE_COLOR,
-            custom_size: Some(Vec2::new(0.1, 5.)),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(0., -3.5, 0.)),
-        ..Default::default()
-    });
 }
 
 pub fn spawn_lifebars(mut commands: Commands, assets: Res<LifebarAssets>) {
