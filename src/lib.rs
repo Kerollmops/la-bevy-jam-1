@@ -54,11 +54,15 @@ pub fn init() {
         .add_state(States::AssetLoading)
         .insert_resource(ClearColor(Color::rgb(0.239, 0.239, 0.239)))
         .insert_resource(GameScore::default())
-        .insert_resource(BonusesTimers {
-            split_ball: Timer::new(Duration::from_secs(5), false),
-            ball_speed_on_area: Timer::new(Duration::from_secs(15), false),
-            balls_vertical_gravity: Timer::new(Duration::from_secs(30), false),
-        })
+        .insert_resource(BonusesTimers(vec![
+            (Timer::new(Duration::from_secs(5), false), BonusType::SplitBall),
+            (Timer::new(Duration::from_secs(15), false), BonusType::BallSpeedInArea),
+            (Timer::new(Duration::from_secs(25), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(25 + 1), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(25 + 2), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(25 + 3), false), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(30), false), BonusType::BallsVerticalGravity),
+        ]))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(AnimationPlugin::default())
@@ -107,6 +111,7 @@ pub fn init() {
                 .with_system(manage_split_ball_bonus)
                 .with_system(manage_ball_speed_on_area_bonus)
                 .with_system(manage_balls_vertical_gravity_bonus)
+                .with_system(manage_shrink_paddle_size_bonus)
                 .with_system(regame_when_no_balls),
         )
         .run();
@@ -197,9 +202,7 @@ fn enable_spawned_balls_ccd(
 }
 
 fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
-    bonuses_timers.split_ball.reset();
-    bonuses_timers.ball_speed_on_area.reset();
-    bonuses_timers.balls_vertical_gravity.reset();
+    bonuses_timers.0.iter_mut().for_each(|(timer, _)| timer.reset());
 }
 
 fn tick_bonuses_timers(
@@ -207,14 +210,10 @@ fn tick_bonuses_timers(
     mut bonuses_timers: ResMut<BonusesTimers>,
     mut spawn_bonus_event: EventWriter<SpawnBonusEvent>,
 ) {
-    if bonuses_timers.split_ball.tick(time.delta()).just_finished() {
-        spawn_bonus_event.send(SpawnBonusEvent(BonusType::SplitBall));
-    }
-    if bonuses_timers.ball_speed_on_area.tick(time.delta()).just_finished() {
-        spawn_bonus_event.send(SpawnBonusEvent(BonusType::BallSpeedInArea));
-    }
-    if bonuses_timers.balls_vertical_gravity.tick(time.delta()).just_finished() {
-        spawn_bonus_event.send(SpawnBonusEvent(BonusType::BallsVerticalGravity));
+    for (timer, bonus) in bonuses_timers.0.iter_mut() {
+        if timer.tick(time.delta()).just_finished() {
+            spawn_bonus_event.send(SpawnBonusEvent(*bonus));
+        }
     }
 }
 
@@ -451,6 +450,8 @@ fn spawn_bonuses(
             BonusType::SplitBall => 0,
             BonusType::BallSpeedInArea => 12,
             BonusType::BallsVerticalGravity => 4,
+            BonusType::ShrinkPaddleSize => 16,
+            BonusType::IncreasePaddleSize => 18,
         };
 
         let mut commands = commands.spawn_bundle(SpriteSheetBundle {
@@ -485,6 +486,12 @@ fn spawn_bonuses(
             }
             BonusType::BallsVerticalGravity => {
                 commands.insert(BonusType::BallsVerticalGravity);
+            }
+            BonusType::ShrinkPaddleSize => {
+                commands.insert(BonusType::ShrinkPaddleSize);
+            }
+            BonusType::IncreasePaddleSize => {
+                commands.insert(BonusType::IncreasePaddleSize);
             }
         }
 
@@ -524,6 +531,14 @@ fn manage_taken_bonuses(
                                     bonus: Bonus::BallsVerticalGravity {
                                         benefiting_paddle: paddle,
                                     },
+                                    paddle,
+                                },
+                                BonusType::ShrinkPaddleSize => TakenBonusEvent {
+                                    bonus: Bonus::ShrinkPaddleSize { impacted_paddle: paddle },
+                                    paddle,
+                                },
+                                BonusType::IncreasePaddleSize => TakenBonusEvent {
+                                    bonus: Bonus::IncreasePaddleSize { benefiting_paddle: paddle },
                                     paddle,
                                 },
                             };
@@ -699,6 +714,26 @@ fn manage_balls_vertical_gravity_bonus(
     }
 }
 
+fn manage_shrink_paddle_size_bonus(
+    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
+    mut paddles_query: Query<(&mut CollisionShape, &mut Sprite, &Paddle)>,
+) {
+    for TakenBonusEvent { bonus, .. } in taken_bonus_reader.iter() {
+        if let Bonus::ShrinkPaddleSize { impacted_paddle } = bonus {
+            for (col, mut sprite, paddle) in paddles_query.iter_mut() {
+                if impacted_paddle == paddle {
+                    if let CollisionShape::Cuboid { mut half_extends, .. } = col.into_inner() {
+                        half_extends[1] = (half_extends[1] - 0.3).max(0.5);
+                    }
+                    if let Some(size) = sprite.custom_size.as_mut() {
+                        size[1] = (size[1] - 0.6).max(1.);
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct GameScore {
     computer_health: usize, // from 1 to 16
     computer_score: usize,
@@ -730,7 +765,7 @@ enum States {
     InGame,
 }
 
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Eq)]
 enum Paddle {
     Player,
     Computer,
@@ -756,11 +791,7 @@ struct Ball {
 }
 
 #[derive(Component)]
-struct BonusesTimers {
-    split_ball: Timer,
-    ball_speed_on_area: Timer,
-    balls_vertical_gravity: Timer,
-}
+struct BonusesTimers(Vec<(Timer, BonusType)>);
 
 struct SpawnBonusEvent(BonusType);
 
@@ -775,6 +806,8 @@ enum Bonus {
     SplitBall { ball: Entity },
     BallSpeedInArea { benefiting_paddle: Paddle },
     BallsVerticalGravity { benefiting_paddle: Paddle },
+    ShrinkPaddleSize { impacted_paddle: Paddle },
+    IncreasePaddleSize { benefiting_paddle: Paddle },
 }
 
 #[derive(Component, Clone, Copy)]
@@ -782,6 +815,8 @@ enum BonusType {
     SplitBall,
     BallSpeedInArea,
     BallsVerticalGravity,
+    ShrinkPaddleSize,
+    IncreasePaddleSize,
 }
 
 #[derive(Component)]
