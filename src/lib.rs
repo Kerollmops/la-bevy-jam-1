@@ -462,10 +462,10 @@ fn spawn_bonuses(
     audio: Res<Audio>,
 ) {
     let mut rng = rand::thread_rng();
-    let x = rng.gen_range(-10.0..10.0);
-    let y = rng.gen_range(-5.5..5.5);
-
     for SpawnBonusEvent(bonus) in spawn_bonus_event.iter() {
+        let x = rng.gen_range(-10.0..10.0);
+        let y = rng.gen_range(-5.5..5.5);
+
         let (texture_atlas, index) = match bonus {
             BonusType::SplitBall => (bonuses_assets.texture_atlas.clone(), 0),
             BonusType::BallSpeedInArea => (bonuses_assets.texture_atlas.clone(), 12),
@@ -744,7 +744,7 @@ fn manage_shrink_paddle_size_bonus(
         if let Bonus::ShrinkPaddleSize { impacted_paddle } = bonus {
             for (col, mut sprite, paddle) in paddles_query.iter_mut() {
                 if impacted_paddle == paddle {
-                    if let CollisionShape::Cuboid { mut half_extends, .. } = col.into_inner() {
+                    if let CollisionShape::Cuboid { ref mut half_extends, .. } = col.into_inner() {
                         half_extends[1] = (half_extends[1] - 0.3).max(0.5);
                     }
                     if let Some(size) = sprite.custom_size.as_mut() {
@@ -764,7 +764,7 @@ fn manage_increase_paddle_size_bonus(
         if let Bonus::IncreasePaddleSize { benefiting_paddle } = bonus {
             for (col, mut sprite, paddle) in paddles_query.iter_mut() {
                 if benefiting_paddle == paddle {
-                    if let CollisionShape::Cuboid { mut half_extends, .. } = col.into_inner() {
+                    if let CollisionShape::Cuboid { ref mut half_extends, .. } = col.into_inner() {
                         half_extends[1] = (half_extends[1] + 0.3).min(5.);
                     }
                     if let Some(size) = sprite.custom_size.as_mut() {
