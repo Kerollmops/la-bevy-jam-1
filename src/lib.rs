@@ -55,7 +55,7 @@ pub fn init() {
         .insert_resource(ClearColor(Color::rgb(0.239, 0.239, 0.239)))
         .insert_resource(GameScore::default())
         .insert_resource(BonusesTimers(vec![
-            (Timer::new(Duration::from_secs(5), false), BonusType::SplitBall),
+            (Timer::new(Duration::from_secs(13), true), BonusType::SplitBall),
             (Timer::new(Duration::from_secs(15), false), BonusType::BallSpeedInArea),
             (Timer::new(Duration::from_secs(20), false), BonusType::ShrinkPaddleSize),
             (Timer::new(Duration::from_secs(25), false), BonusType::IncreasePaddleSize),
