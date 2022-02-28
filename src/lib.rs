@@ -98,6 +98,7 @@ pub fn init() {
                 .with_system(speed_up_balls_with_touched_edges)
                 .with_system(track_scoring_balls)
                 .with_system(track_balls_touching_paddles)
+                .with_system(track_balls_entering_side)
                 .with_system(blip_on_ball_collisions)
                 .with_system(tick_bonuses_timers)
                 .with_system(spawn_bonuses)
@@ -391,6 +392,25 @@ fn track_balls_touching_paddles(
     }
 }
 
+fn track_balls_entering_side(
+    mut collision_events: EventReader<GameCollisionEvent>,
+    sides_query: Query<&Side>,
+    mut balls_query: Query<&mut Ball>,
+) {
+    use CollisionStatus::*;
+    use GameCollisionEvent::*;
+
+    for event in collision_events.iter() {
+        if let BallAndSide { status: Started, ball, side } = event {
+            if let Ok(side) = sides_query.get(*side) {
+                if let Ok(mut ball) = balls_query.get_mut(*ball) {
+                    ball.current_side = Some(*side);
+                }
+            }
+        }
+    }
+}
+
 fn blip_on_ball_collisions(
     mut collision_events: EventReader<GameCollisionEvent>,
     audio_assets: Res<AudioAssets>,
@@ -496,9 +516,10 @@ fn manage_taken_bonuses(
                                     bonus: Bonus::SplitBall { ball: *ball_entity },
                                     paddle,
                                 },
-                                BonusType::BallSpeedInArea => {
-                                    TakenBonusEvent { bonus: Bonus::BallSpeedInArea, paddle }
-                                }
+                                BonusType::BallSpeedInArea => TakenBonusEvent {
+                                    bonus: Bonus::BallSpeedInArea { benefiting_paddle: paddle },
+                                    paddle,
+                                },
                                 BonusType::BallsVerticalGravity => TakenBonusEvent {
                                     bonus: Bonus::BallsVerticalGravity {
                                         benefiting_paddle: paddle,
@@ -582,38 +603,79 @@ fn manage_split_ball_bonus(
 }
 
 fn manage_ball_speed_on_area_bonus(
+    mut taken_bonus_reader: EventReader<TakenBonusEvent>,
     mut collision_events_reader: EventReader<GameCollisionEvent>,
     game_score: Res<GameScore>,
-    mut balls_query: Query<&mut Velocity, With<Ball>>,
+    mut balls_query: Query<(&mut Velocity, &Ball)>,
     side_query: Query<&Side>,
 ) {
     use Bonus::*;
     use CollisionStatus::*;
+
+    fn change_velocity(
+        velocity: &mut Velocity,
+        side: Side,
+        status: CollisionStatus,
+        player_speedups: usize,
+        computer_speedups: usize,
+    ) {
+        match (side, status) {
+            (Side::Player, Started) => {
+                velocity.linear *= 1. + 1.5 * computer_speedups as f32;
+            }
+            (Side::Player, Stopped) => {
+                velocity.linear /= 1. + 1.5 * computer_speedups as f32;
+            }
+            (Side::Computer, Started) => {
+                velocity.linear *= 1. + 1.5 * player_speedups as f32;
+            }
+            (Side::Computer, Stopped) => {
+                velocity.linear /= 1. + 1.5 * player_speedups as f32;
+            }
+        }
+    }
 
     let player_speedups =
         game_score.player_bonuses.iter().filter(|b| matches!(b, BallSpeedInArea { .. })).count();
     let computer_speedups =
         game_score.computer_bonuses.iter().filter(|b| matches!(b, BallSpeedInArea { .. })).count();
 
+    // We speed-up or slow-down the ball at the moment we take it
+    for event in taken_bonus_reader.iter() {
+        if let TakenBonusEvent { bonus: BallSpeedInArea { benefiting_paddle }, .. } = event {
+            for (mut velocity, ball) in balls_query.iter_mut() {
+                if let Some(side) = ball.current_side {
+                    let status = match (benefiting_paddle, side) {
+                        (Paddle::Player, Side::Player) => Stopped,
+                        (Paddle::Computer, Side::Computer) => Stopped,
+                        (Paddle::Player, Side::Computer) => Started,
+                        (Paddle::Computer, Side::Player) => Started,
+                    };
+
+                    change_velocity(
+                        &mut velocity,
+                        side,
+                        status,
+                        player_speedups,
+                        computer_speedups,
+                    );
+                }
+            }
+        }
+    }
+
     if player_speedups > 0 || computer_speedups > 0 {
         for event in collision_events_reader.iter() {
             if let GameCollisionEvent::BallAndSide { status, ball, side } = event {
                 if let Ok(side) = side_query.get(*side) {
-                    if let Ok(mut velocity) = balls_query.get_mut(*ball) {
-                        match (side, status) {
-                            (Side::Player, Started) => {
-                                velocity.linear *= 1. + 1.5 * computer_speedups as f32;
-                            }
-                            (Side::Player, Stopped) => {
-                                velocity.linear /= 1. + 1.5 * computer_speedups as f32;
-                            }
-                            (Side::Computer, Started) => {
-                                velocity.linear *= 1. + 1.5 * player_speedups as f32;
-                            }
-                            (Side::Computer, Stopped) => {
-                                velocity.linear /= 1. + 1.5 * player_speedups as f32;
-                            }
-                        }
+                    if let Ok((mut velocity, _ball)) = balls_query.get_mut(*ball) {
+                        change_velocity(
+                            &mut velocity,
+                            *side,
+                            *status,
+                            player_speedups,
+                            computer_speedups,
+                        );
                     }
                 }
             }
@@ -690,6 +752,7 @@ enum Side {
 struct Ball {
     touched_paddles: usize,
     last_touched_paddle: Option<Entity>,
+    current_side: Option<Side>,
 }
 
 #[derive(Component)]
@@ -710,7 +773,7 @@ struct TakenBonusEvent {
 #[derive(Debug, Clone, Copy)]
 enum Bonus {
     SplitBall { ball: Entity },
-    BallSpeedInArea,
+    BallSpeedInArea { benefiting_paddle: Paddle },
     BallsVerticalGravity { benefiting_paddle: Paddle },
 }
 
