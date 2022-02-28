@@ -27,8 +27,8 @@ const RED_COLOR: Color = Color::rgb(1., 0.706, 0.706);
 
 const PADDLE_SPEED: f32 = 10.0;
 const BALL_SPEED: f32 = 10.0;
-const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.05;
-const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.025;
+const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.025;
+const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.0125;
 
 // For wasm-pack to be happy...
 #[cfg(target_arch = "wasm32")]
