@@ -77,7 +77,7 @@ pub fn spawn_goals(mut commands: Commands) {
     // Player goal (on the right)
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(12.25, 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(13., 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
         .insert(CollisionShape::Cuboid {
@@ -95,7 +95,7 @@ pub fn spawn_goals(mut commands: Commands) {
     // Computer goal (on the left)
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(-12.25, 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(-13., 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
         .insert(CollisionShape::Cuboid {
@@ -157,13 +157,10 @@ pub fn spawn_sides(mut commands: Commands) {
     // Right side
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(5.75, 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(6., 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
-        .insert(CollisionShape::Cuboid {
-            half_extends: Vec3::new(5.75, 6., 0.),
-            border_radius: None,
-        })
+        .insert(CollisionShape::Cuboid { half_extends: Vec3::new(6., 6., 0.), border_radius: None })
         .insert(
             CollisionLayers::none()
                 .with_group(GamePhysicsLayer::Side)
@@ -174,13 +171,10 @@ pub fn spawn_sides(mut commands: Commands) {
     // Left side
     commands
         .spawn()
-        .insert(Transform::from_translation(Vec3::new(-5.75, 0., 0.)))
+        .insert(Transform::from_translation(Vec3::new(-6., 0., 0.)))
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
-        .insert(CollisionShape::Cuboid {
-            half_extends: Vec3::new(5.75, 6., 0.),
-            border_radius: None,
-        })
+        .insert(CollisionShape::Cuboid { half_extends: Vec3::new(6., 6., 0.), border_radius: None })
         .insert(
             CollisionLayers::none()
                 .with_group(GamePhysicsLayer::Side)

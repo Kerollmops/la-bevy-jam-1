@@ -29,6 +29,7 @@ const PADDLE_SPEED: f32 = 10.0;
 const BALL_SPEED: f32 = 10.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.025;
 const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.0125;
+const PADDLE_ROTATION: f32 = PI / 15.;
 
 // For wasm-pack to be happy...
 #[cfg(target_arch = "wasm32")]
@@ -90,6 +91,7 @@ pub fn init() {
                 .with_system(reset_owned_bonuses)
                 .with_system(reset_bonuses_timers)
                 .with_system(reset_paddles_velocity)
+                .with_system(reset_paddle_transform)
                 .with_system(reset_paddle_sizes),
         )
         .add_system_set(SystemSet::on_update(States::WaitingPlayer).with_system(launch_ball))
@@ -100,6 +102,7 @@ pub fn init() {
                 .with_system(enable_spawned_balls_ccd)
                 .with_system(move_player_paddle)
                 .with_system(move_computer_paddle)
+                .with_system(tilt_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
                 .with_system(speed_up_balls_with_touched_edges)
                 .with_system(track_scoring_balls)
@@ -225,6 +228,13 @@ fn reset_paddle_sizes(mut paddles_query: Query<(&mut CollisionShape, &mut Sprite
     }
 }
 
+fn reset_paddle_transform(mut paddles_query: Query<&mut Transform, With<Paddle>>) {
+    for mut transform in paddles_query.iter_mut() {
+        transform.translation.y = 0.;
+        transform.rotation = Quat::IDENTITY;
+    }
+}
+
 fn tick_bonuses_timers(
     time: Res<Time>,
     mut bonuses_timers: ResMut<BonusesTimers>,
@@ -276,9 +286,9 @@ fn launch_ball(
 fn move_player_paddle(
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
-    mut paddle_query: Query<(&mut Transform, &Paddle)>,
+    mut paddle_query: Query<(&mut Transform, &mut Velocity, &Paddle)>,
 ) {
-    for (mut transform, paddle) in paddle_query.iter_mut() {
+    for (mut transform, mut velocity, paddle) in paddle_query.iter_mut() {
         if let Paddle::Player = paddle {
             let direction = if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
                 1.
@@ -288,6 +298,7 @@ fn move_player_paddle(
                 0.
             };
 
+            velocity.linear.y = direction * PADDLE_SPEED;
             transform.translation.y += time.delta_seconds() * direction * PADDLE_SPEED;
             transform.translation.y = transform.translation.y.clamp(-8., 8.);
         }
@@ -318,6 +329,18 @@ fn move_computer_paddle(
                 transform.translation.y += time.delta_seconds() * speed;
                 transform.translation.y = transform.translation.y.clamp(-8., 8.);
             }
+        }
+    }
+}
+
+fn tilt_paddle(mut paddle_query: Query<(&mut Transform, &Velocity), With<Paddle>>) {
+    for (mut transform, velocity) in paddle_query.iter_mut() {
+        if velocity.linear.y > 0.1 {
+            transform.rotation = Quat::from_rotation_z(2. * PI - PADDLE_ROTATION);
+        } else if velocity.linear.y < -0.1 {
+            transform.rotation = Quat::from_rotation_z(PADDLE_ROTATION);
+        } else {
+            transform.rotation = Quat::IDENTITY;
         }
     }
 }
