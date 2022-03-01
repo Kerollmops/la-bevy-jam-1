@@ -274,12 +274,13 @@ fn launch_ball(
 }
 
 fn move_player_paddle(
+    time: Res<Time>,
     keys: Res<Input<KeyCode>>,
-    mut paddle_query: Query<(&mut Velocity, &Paddle)>,
+    mut paddle_query: Query<(&mut Transform, &Paddle)>,
 ) {
-    for (mut velocity, paddle) in paddle_query.iter_mut() {
+    for (mut transform, paddle) in paddle_query.iter_mut() {
         if let Paddle::Player = paddle {
-            let y = if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
+            let direction = if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
                 1.
             } else if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
                 -1.
@@ -287,16 +288,18 @@ fn move_player_paddle(
                 0.
             };
 
-            velocity.linear = Vec2::new(0., y).extend(0.) * PADDLE_SPEED;
+            transform.translation.y += time.delta_seconds() * direction * PADDLE_SPEED;
+            transform.translation.y = transform.translation.y.clamp(-8., 8.);
         }
     }
 }
 
 fn move_computer_paddle(
-    mut computer_paddle_query: Query<(&mut Velocity, &GlobalTransform, &Paddle)>,
+    time: Res<Time>,
+    mut paddle_query: Query<(&mut Transform, &GlobalTransform, &Paddle)>,
     balls_query: Query<&GlobalTransform, With<Ball>>,
 ) {
-    for (mut velocity, global_transform, paddle) in computer_paddle_query.iter_mut() {
+    for (mut transform, global_transform, paddle) in paddle_query.iter_mut() {
         if let Paddle::Computer = paddle {
             let position = global_transform.translation;
             if let Some(nearest_ball_transform) = balls_query
@@ -312,7 +315,8 @@ fn move_computer_paddle(
                     PADDLE_SPEED
                 };
 
-                velocity.linear = Vec3::new(0., speed, 0.);
+                transform.translation.y += time.delta_seconds() * speed;
+                transform.translation.y = transform.translation.y.clamp(-8., 8.);
             }
         }
     }

@@ -26,7 +26,7 @@ pub fn spawn_paddles(mut commands: Commands) {
             ..Default::default()
         })
         .insert(Velocity::default())
-        .insert(RigidBody::KinematicVelocityBased)
+        .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Cuboid {
             half_extends: Vec3::new(0.25, PLAYER_PADDLE_HEIGHT / 2., 0.),
             border_radius: None,
@@ -55,7 +55,7 @@ pub fn spawn_paddles(mut commands: Commands) {
             ..Default::default()
         })
         .insert(Velocity::default())
-        .insert(RigidBody::KinematicVelocityBased)
+        .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Cuboid {
             half_extends: Vec3::new(0.25, COMPUTER_PADDLE_HEIGHT / 2., 0.),
             border_radius: None,
