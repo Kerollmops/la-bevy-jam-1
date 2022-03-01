@@ -26,6 +26,8 @@ const BLUE_COLOR: Color = Color::rgb(0.706, 0.706, 1.);
 const RED_COLOR: Color = Color::rgb(1., 0.706, 0.706);
 
 const PADDLE_SPEED: f32 = 10.0;
+const MAX_HEALTH: usize = 15;
+
 const BALL_SPEED: f32 = 10.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.025;
 const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.0125;
@@ -45,6 +47,8 @@ pub fn init() {
         .with_collection::<BonusesAssets>()
         .with_collection::<LifebarAssets>()
         .with_collection::<SpacebarAssets>()
+        .with_collection::<HudAssets>()
+        .with_collection::<VersusAssets>()
         .with_collection::<AudioAssets>()
         .continue_to_state(States::InitGame)
         .build(&mut app);
@@ -80,6 +84,8 @@ pub fn init() {
                 .with_system(spawn_sides)
                 .with_system(spawn_field_lines)
                 .with_system(spawn_lifebars)
+                .with_system(spawn_empty_round_slots)
+                .with_system(spawn_versus)
                 .with_system(ready_to_wait_player),
         )
         .add_system_set(
@@ -105,7 +111,8 @@ pub fn init() {
                 .with_system(tilt_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
                 .with_system(speed_up_balls_with_touched_edges)
-                .with_system(track_scoring_balls)
+                .with_system(track_damaging_balls)
+                .with_system(track_scores)
                 .with_system(track_balls_touching_paddles)
                 .with_system(track_balls_entering_side)
                 .with_system(blip_on_ball_collisions)
@@ -118,7 +125,8 @@ pub fn init() {
                 .with_system(manage_balls_vertical_gravity_bonus)
                 .with_system(manage_shrink_paddle_size_bonus)
                 .with_system(manage_increase_paddle_size_bonus)
-                .with_system(regame_when_no_balls),
+                .with_system(regame_when_no_balls)
+                .with_system(display_rounds),
         )
         .run();
 }
@@ -376,7 +384,7 @@ fn speed_up_balls_with_touched_edges(
     }
 }
 
-fn track_scoring_balls(
+fn track_damaging_balls(
     mut commands: Commands,
     mut collision_events: EventReader<GameCollisionEvent>,
     mut lifebar_query: Query<(&mut TextureAtlasSprite, &Lifebar)>,
@@ -413,6 +421,26 @@ fn track_scoring_balls(
                 commands.entity(*ball).despawn_recursive();
             }
         }
+    }
+}
+
+fn track_scores(
+    mut commands: Commands,
+    mut score: ResMut<GameScore>,
+    ball_query: Query<Entity, With<Ball>>,
+) {
+    if score.player_health == 0 {
+        score.computer_rounds += 1;
+        score.computer_health = MAX_HEALTH;
+        score.player_health = MAX_HEALTH;
+        ball_query.iter().for_each(|e| commands.entity(e).despawn());
+    }
+
+    if score.computer_health == 0 {
+        score.player_rounds += 1;
+        score.player_health = MAX_HEALTH;
+        score.computer_health = MAX_HEALTH;
+        ball_query.iter().for_each(|e| commands.entity(e).despawn());
     }
 }
 
@@ -803,24 +831,39 @@ fn manage_increase_paddle_size_bonus(
     }
 }
 
+fn display_rounds(
+    game_score: Res<GameScore>,
+    mut round_query: Query<(&mut TextureAtlasSprite, &Round)>,
+) {
+    for (mut texture_atlas_sprite, round) in round_query.iter_mut() {
+        texture_atlas_sprite.index = match round {
+            Round::ComputerFirst if game_score.computer_rounds > 0 => 2,
+            Round::ComputerSecond if game_score.computer_rounds > 1 => 2,
+            Round::PlayerFirst if game_score.player_rounds > 0 => 2,
+            Round::PlayerSecond if game_score.player_rounds > 1 => 2,
+            _ => 3,
+        };
+    }
+}
+
 struct GameScore {
     computer_health: usize, // from 1 to 16
-    computer_score: usize,
+    computer_rounds: usize, // from 0 to 2
     computer_bonuses: Vec<Bonus>,
 
     player_health: usize, // from 1 to 16
-    player_score: usize,
+    player_rounds: usize, // from 0 to 2
     player_bonuses: Vec<Bonus>,
 }
 
 impl Default for GameScore {
     fn default() -> GameScore {
         GameScore {
-            computer_health: 15,
-            computer_score: 0,
+            computer_health: MAX_HEALTH,
+            computer_rounds: 0,
             computer_bonuses: Vec::new(),
-            player_health: 15,
-            player_score: 0,
+            player_health: MAX_HEALTH,
+            player_rounds: 0,
             player_bonuses: Vec::new(),
         }
     }
@@ -905,3 +948,11 @@ enum Lifebar {
 
 #[derive(Component)]
 struct SpacebarAnimation;
+
+#[derive(Component)]
+enum Round {
+    ComputerFirst,
+    ComputerSecond,
+    PlayerFirst,
+    PlayerSecond,
+}

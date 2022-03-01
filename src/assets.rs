@@ -37,6 +37,20 @@ pub struct SpacebarAssets {
 }
 
 #[derive(AssetCollection)]
+pub struct HudAssets {
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 4, rows = 1))]
+    #[asset(path = "images/hud.png")]
+    pub texture_atlas: Handle<TextureAtlas>,
+}
+
+#[derive(AssetCollection)]
+pub struct VersusAssets {
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 1, rows = 1))]
+    #[asset(path = "images/versus.png")]
+    pub texture_atlas: Handle<TextureAtlas>,
+}
+
+#[derive(AssetCollection)]
 pub struct AudioAssets {
     #[asset(path = "sfx/whistle.wav")]
     pub whistle: Handle<AudioSource>,

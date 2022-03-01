@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
-use crate::{Goal, Lifebar, LifebarAssets, Paddle, Side, BLUE_COLOR, RED_COLOR, WHITE_COLOR};
+use crate::{
+    Goal, HudAssets, Lifebar, LifebarAssets, Paddle, Round, Side, VersusAssets, BLUE_COLOR,
+    RED_COLOR, WHITE_COLOR,
+};
 
 pub const PLAYER_PADDLE_HEIGHT: f32 = 5.;
 pub const COMPUTER_PADDLE_HEIGHT: f32 = 8.;
@@ -236,4 +239,75 @@ pub fn spawn_lifebars(mut commands: Commands, assets: Res<LifebarAssets>) {
             ..Default::default()
         })
         .insert(Lifebar::Player);
+}
+
+pub fn spawn_empty_round_slots(mut commands: Commands, assets: Res<HudAssets>) {
+    // Computer round #1
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(-4., 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 3,
+                custom_size: Some(Vec2::new(0.5, 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Round::ComputerFirst);
+
+    // Computer round #2
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(-3.3, 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 3,
+                custom_size: Some(Vec2::new(0.5, 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Round::ComputerSecond);
+
+    // Player round #1
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(4., 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 3,
+                custom_size: Some(Vec2::new(0.5, 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Round::PlayerFirst);
+
+    // Player round #2
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture_atlas: assets.texture_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(3.3, 6.625, 0.)),
+            sprite: TextureAtlasSprite {
+                index: 3,
+                custom_size: Some(Vec2::new(0.5, 0.5)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Round::PlayerSecond);
+}
+
+pub fn spawn_versus(mut commands: Commands, assets: Res<VersusAssets>) {
+    commands.spawn_bundle(SpriteSheetBundle {
+        texture_atlas: assets.texture_atlas.clone(),
+        transform: Transform::from_translation(Vec3::new(0., 6.4, 2.)),
+        sprite: TextureAtlasSprite {
+            index: 0,
+            custom_size: Some(Vec2::new(2., 2.)),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
