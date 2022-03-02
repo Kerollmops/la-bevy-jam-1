@@ -30,6 +30,7 @@ const PADDLE_SPEED: f32 = 10.0;
 const MAX_HEALTH: usize = 15;
 
 const BALL_SPEED: f32 = 10.0;
+const BALL_MAX_SPEED: f32 = 100.0;
 const BALL_TOUCH_PADDLE_SPEED_UP: f32 = 0.025;
 const BALL_TOUCH_EDGE_SPEED_UP: f32 = 0.0125;
 const PADDLE_ROTATION: f32 = PI / 15.;
@@ -110,6 +111,7 @@ pub fn init() {
                 .with_system(tilt_paddle)
                 .with_system(speed_up_balls_with_touched_paddles)
                 .with_system(speed_up_balls_with_touched_edges)
+                .with_system(clamp_ball_speed)
                 .with_system(track_damaging_balls)
                 .with_system(track_scores)
                 .with_system(track_balls_touching_paddles)
@@ -395,6 +397,14 @@ fn speed_up_balls_with_touched_edges(
                 velocity.linear *= 1. + BALL_TOUCH_EDGE_SPEED_UP;
             }
         }
+    }
+}
+
+fn clamp_ball_speed(mut balls_query: Query<&mut Velocity, With<Ball>>) {
+    for mut velocity in balls_query.iter_mut() {
+        let length = velocity.linear.length();
+        let multiplier = if length > BALL_MAX_SPEED { BALL_MAX_SPEED / length } else { 1.0 };
+        velocity.linear *= multiplier;
     }
 }
 
