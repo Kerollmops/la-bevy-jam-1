@@ -77,6 +77,7 @@ pub fn init() {
             SystemSet::on_enter(States::InitGame)
                 .with_system(generate_animations)
                 .with_system(spawn_paddles)
+                .with_system(enable_spawned_paddle_ccd)
                 .with_system(spawn_goals)
                 .with_system(spawn_edges)
                 .with_system(spawn_sides)
@@ -205,6 +206,17 @@ fn spawn_static_ball(mut commands: Commands, assets: Res<BallAssets>) {
 fn enable_spawned_balls_ccd(
     mut rigid_bodies: ResMut<RigidBodySet>,
     new_handles: Query<&RigidBodyHandle, (Added<RigidBodyHandle>, With<Ball>)>,
+) {
+    for handle in new_handles.iter() {
+        if let Some(body) = rigid_bodies.get_mut(handle.into_rapier()) {
+            body.enable_ccd(true);
+        }
+    }
+}
+
+fn enable_spawned_paddle_ccd(
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    new_handles: Query<&RigidBodyHandle, (Added<RigidBodyHandle>, With<Paddle>)>,
 ) {
     for handle in new_handles.iter() {
         if let Some(body) = rigid_bodies.get_mut(handle.into_rapier()) {
