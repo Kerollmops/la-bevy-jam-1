@@ -10,6 +10,7 @@ use heron::rapier_plugin::convert::IntoRapier;
 use heron::rapier_plugin::rapier2d::dynamics::RigidBodySet;
 use heron::rapier_plugin::RigidBodyHandle;
 use ordered_float::OrderedFloat;
+use rand::prelude::SliceRandom;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
 
@@ -60,14 +61,11 @@ pub fn init() {
         .insert_resource(ClearColor(Color::rgb(0.239, 0.239, 0.239)))
         .insert_resource(GameScore::default())
         .insert_resource(BonusesTimers(vec![
-            (Timer::new(Duration::from_secs(13), true), BonusType::SplitBall),
-            (Timer::new(Duration::from_secs(15), false), BonusType::BallSpeedInArea),
-            (Timer::new(Duration::from_secs(20), false), BonusType::ShrinkPaddleSize),
-            (Timer::new(Duration::from_secs(25), false), BonusType::IncreasePaddleSize),
-            (Timer::new(Duration::from_secs(25 + 1), false), BonusType::IncreasePaddleSize),
-            (Timer::new(Duration::from_secs(25 + 2), false), BonusType::IncreasePaddleSize),
-            (Timer::new(Duration::from_secs(25 + 3), false), BonusType::IncreasePaddleSize),
-            (Timer::new(Duration::from_secs(30), false), BonusType::BallsVerticalGravity),
+            (Timer::new(Duration::from_secs(10), true), BonusType::SplitBall),
+            (Timer::new(Duration::from_secs(20), true), BonusType::BallsVerticalGravity),
+            (Timer::new(Duration::from_secs(25), true), BonusType::BallSpeedInArea),
+            (Timer::new(Duration::from_secs(30), true), BonusType::ShrinkPaddleSize),
+            (Timer::new(Duration::from_secs(30), true), BonusType::IncreasePaddleSize),
         ]))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
@@ -95,7 +93,7 @@ pub fn init() {
                 .with_system(enable_spawned_balls_ccd)
                 .with_system(reset_bonuses)
                 .with_system(reset_owned_bonuses)
-                .with_system(reset_bonuses_timers)
+                .with_system(randomize_bonuses)
                 .with_system(reset_paddles_velocity)
                 .with_system(reset_paddle_transform)
                 .with_system(reset_paddle_sizes),
@@ -215,8 +213,12 @@ fn enable_spawned_balls_ccd(
     }
 }
 
-fn reset_bonuses_timers(mut bonuses_timers: ResMut<BonusesTimers>) {
-    bonuses_timers.0.iter_mut().for_each(|(timer, _)| timer.reset());
+fn randomize_bonuses(mut bonuses_timers: ResMut<BonusesTimers>) {
+    let mut rng = rand::thread_rng();
+    bonuses_timers.0.shuffle(&mut rng);
+    bonuses_timers.0.iter_mut().for_each(|(timer, _)| {
+        *timer = Timer::from_seconds(rng.gen_range(8.0..40.0), true);
+    });
 }
 
 fn reset_paddle_sizes(mut paddles_query: Query<(&mut CollisionShape, &mut Sprite, &Paddle)>) {
