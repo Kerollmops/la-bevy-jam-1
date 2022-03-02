@@ -302,10 +302,10 @@ pub fn spawn_empty_round_slots(mut commands: Commands, assets: Res<HudAssets>) {
 pub fn spawn_versus(mut commands: Commands, assets: Res<VersusAssets>) {
     commands.spawn_bundle(SpriteSheetBundle {
         texture_atlas: assets.texture_atlas.clone(),
-        transform: Transform::from_translation(Vec3::new(0., 6.4, 2.)),
+        transform: Transform::from_translation(Vec3::new(0., 6.1, 2.)),
         sprite: TextureAtlasSprite {
             index: 0,
-            custom_size: Some(Vec2::new(2., 2.)),
+            custom_size: Some(Vec2::new(1.8, 1.8)),
             ..Default::default()
         },
         ..Default::default()
