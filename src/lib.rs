@@ -614,40 +614,40 @@ fn manage_taken_bonuses(
     for event in collision_events_reader.iter() {
         if let BallAndBonus { status: Started, ball: ball_entity, bonus: bonus_entity } = event {
             if let Ok(ball) = balls_query.get(*ball_entity) {
-                if let Some(paddle_entity) = ball.last_touched_paddle {
-                    if let Ok(&paddle) = paddles_query.get(paddle_entity) {
-                        if let Ok(&bonus) = bonuses_query.get(*bonus_entity) {
-                            let bonus = match bonus {
-                                BonusType::SplitBall => TakenBonusEvent {
-                                    bonus: Bonus::SplitBall { ball: *ball_entity },
-                                    paddle,
-                                },
-                                BonusType::BallSpeedInArea => TakenBonusEvent {
-                                    bonus: Bonus::BallSpeedInArea { benefiting_paddle: paddle },
-                                    paddle,
-                                },
-                                BonusType::BallsVerticalGravity => TakenBonusEvent {
-                                    bonus: Bonus::BallsVerticalGravity {
-                                        benefiting_paddle: paddle,
-                                    },
-                                    paddle,
-                                },
-                                BonusType::ShrinkPaddleSize => TakenBonusEvent {
-                                    bonus: Bonus::ShrinkPaddleSize {
-                                        impacted_paddle: paddle.reverse(),
-                                    },
-                                    paddle,
-                                },
-                                BonusType::IncreasePaddleSize => TakenBonusEvent {
-                                    bonus: Bonus::IncreasePaddleSize { benefiting_paddle: paddle },
-                                    paddle,
-                                },
-                            };
-                            taken_bonus_writer.send(bonus);
-                            commands.entity(*bonus_entity).despawn_recursive();
+                let paddle = match ball.last_touched_paddle {
+                    Some(paddle_entity) => paddles_query.get(paddle_entity).ok().copied(),
+                    None => None,
+                };
 
-                            audio.play(audio_assets.powerup_gain.clone());
-                        }
+                if let Ok(&bonus) = bonuses_query.get(*bonus_entity) {
+                    let bonus = match (bonus, paddle) {
+                        (BonusType::SplitBall, _) => Some(TakenBonusEvent {
+                            bonus: Bonus::SplitBall { ball: *ball_entity },
+                            paddle: None,
+                        }),
+                        (BonusType::BallSpeedInArea, Some(paddle)) => Some(TakenBonusEvent {
+                            bonus: Bonus::BallSpeedInArea { benefiting_paddle: paddle },
+                            paddle: Some(paddle),
+                        }),
+                        (BonusType::BallsVerticalGravity, Some(paddle)) => Some(TakenBonusEvent {
+                            bonus: Bonus::BallsVerticalGravity { benefiting_paddle: paddle },
+                            paddle: Some(paddle),
+                        }),
+                        (BonusType::ShrinkPaddleSize, Some(paddle)) => Some(TakenBonusEvent {
+                            bonus: Bonus::ShrinkPaddleSize { impacted_paddle: paddle.reverse() },
+                            paddle: Some(paddle),
+                        }),
+                        (BonusType::IncreasePaddleSize, Some(paddle)) => Some(TakenBonusEvent {
+                            bonus: Bonus::IncreasePaddleSize { benefiting_paddle: paddle },
+                            paddle: Some(paddle),
+                        }),
+                        _ => None,
+                    };
+
+                    if let Some(bonus) = bonus {
+                        taken_bonus_writer.send(bonus);
+                        commands.entity(*bonus_entity).despawn_recursive();
+                        audio.play(audio_assets.powerup_gain.clone());
                     }
                 }
             }
@@ -660,9 +660,11 @@ fn store_taken_bonuses_in_score(
     mut taken_bonus_reader: EventReader<TakenBonusEvent>,
 ) {
     for TakenBonusEvent { bonus, paddle } in taken_bonus_reader.iter() {
-        match paddle {
-            Paddle::Player => score.player_bonuses.push(*bonus),
-            Paddle::Computer => score.computer_bonuses.push(*bonus),
+        if let Some(paddle) = paddle {
+            match paddle {
+                Paddle::Player => score.player_bonuses.push(*bonus),
+                Paddle::Computer => score.computer_bonuses.push(*bonus),
+            }
         }
     }
 }
@@ -943,7 +945,7 @@ struct SpawnBonusEvent(BonusType);
 #[derive(Debug)]
 struct TakenBonusEvent {
     bonus: Bonus,
-    paddle: Paddle,
+    paddle: Option<Paddle>,
 }
 
 #[derive(Debug, Clone, Copy)]
