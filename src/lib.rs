@@ -127,7 +127,8 @@ pub fn init() {
                 .with_system(manage_shrink_paddle_size_bonus)
                 .with_system(manage_increase_paddle_size_bonus)
                 .with_system(regame_when_no_balls)
-                .with_system(display_rounds),
+                .with_system(display_rounds)
+                .with_system(display_lifebars),
         )
         .run();
 }
@@ -411,7 +412,6 @@ fn clamp_ball_speed(mut balls_query: Query<&mut Velocity, With<Ball>>) {
 fn track_damaging_balls(
     mut commands: Commands,
     mut collision_events: EventReader<GameCollisionEvent>,
-    mut lifebar_query: Query<(&mut TextureAtlasSprite, &Lifebar)>,
     mut score: ResMut<GameScore>,
     goals_query: Query<&Goal>,
     audio_assets: Res<AudioAssets>,
@@ -425,19 +425,9 @@ fn track_damaging_balls(
                 match goal {
                     Goal::Player => {
                         score.player_health = score.player_health.saturating_sub(1);
-                        for (mut texture_atlas_sprite, lifebar) in lifebar_query.iter_mut() {
-                            if let Lifebar::Player = lifebar {
-                                texture_atlas_sprite.index = score.player_health;
-                            }
-                        }
                     }
                     Goal::Computer => {
                         score.computer_health = score.computer_health.saturating_sub(1);
-                        for (mut texture_atlas_sprite, lifebar) in lifebar_query.iter_mut() {
-                            if let Lifebar::Computer = lifebar {
-                                texture_atlas_sprite.index = score.computer_health;
-                            }
-                        }
                     }
                 }
 
@@ -868,6 +858,18 @@ fn display_rounds(
             Round::PlayerFirst if game_score.player_rounds > 0 => 2,
             Round::PlayerSecond if game_score.player_rounds > 1 => 2,
             _ => 3,
+        };
+    }
+}
+
+fn display_lifebars(
+    game_score: Res<GameScore>,
+    mut lifebar_query: Query<(&mut TextureAtlasSprite, &Lifebar)>,
+) {
+    for (mut texture_atlas_sprite, lifebar) in lifebar_query.iter_mut() {
+        texture_atlas_sprite.index = match lifebar {
+            Lifebar::Computer => game_score.computer_health,
+            Lifebar::Player => game_score.player_health,
         };
     }
 }
