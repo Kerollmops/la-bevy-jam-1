@@ -1,10 +1,11 @@
 use bevy::prelude::*;
+use bevy_kira_audio::Audio;
 use heron::prelude::*;
 
 use crate::game_collisions::GamePhysicsLayer;
 use crate::{
-    Goal, HudAssets, Lifebar, LifebarAssets, Paddle, Round, Side, VersusAssets, BLUE_COLOR,
-    RED_COLOR, WHITE_COLOR,
+    AudioAssets, Goal, HudAssets, Lifebar, LifebarAssets, Paddle, Round, Side, VersusAssets,
+    BLUE_COLOR, RED_COLOR, WHITE_COLOR,
 };
 
 pub const PLAYER_PADDLE_HEIGHT: f32 = 5.;
@@ -310,4 +311,8 @@ pub fn spawn_versus(mut commands: Commands, assets: Res<VersusAssets>) {
         },
         ..Default::default()
     });
+}
+
+pub fn run_loop_music(audio_assets: Res<AudioAssets>, audio: Res<Audio>) {
+    audio.play_looped(audio_assets.goal.clone());
 }

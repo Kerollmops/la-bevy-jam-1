@@ -86,6 +86,7 @@ pub fn init() {
                 .with_system(spawn_lifebars)
                 .with_system(spawn_empty_round_slots)
                 .with_system(spawn_versus)
+                .with_system(run_loop_music)
                 .with_system(ready_to_wait_player),
         )
         .add_system_set(
