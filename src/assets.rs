@@ -69,4 +69,7 @@ pub struct AudioAssets {
 
     #[asset(path = "sfx/hit_1.wav")]
     pub hit_1: Handle<AudioSource>,
+
+    #[asset(path = "audiotracks/bevyjam.wav")]
+    pub track: Handle<AudioSource>,
 }

@@ -314,5 +314,5 @@ pub fn spawn_versus(mut commands: Commands, assets: Res<VersusAssets>) {
 }
 
 pub fn run_loop_music(audio_assets: Res<AudioAssets>, audio: Res<Audio>) {
-    audio.play_looped(audio_assets.goal.clone());
+    audio.play_looped(audio_assets.track.clone());
 }
